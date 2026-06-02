@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Codec IP - Painel Profissional</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
+        .codec-panel { max-width: 700px; margin: 30px auto; background-color: #161a26; border-radius: 12px; border: 1px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.15); padding: 30px; }
+        h1 { font-size: 22px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1.5px; text-transform: uppercase; }
+        .status-badge { display: inline-block; background-color: #ef4444; color: #fff; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; margin: 10px auto 25px auto; display: table; letter-spacing: 1px; }
+        .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; }
+        .config-section h3 { font-size: 13px; color: #00f2fe; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+        select, input[type="range"] { width: 100%; background-color: #161a26; border: 1px solid #22293a; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; }
+        .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
+        .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 25px; background-color: #05070a; padding: 4px; border-radius: 4px; border: 1px solid #111; }
+        .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; transition: background-color 0.05s ease; }
+        .led.green-on { background-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
+        .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
+        .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
+        .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; padding: 0 4px; }
+        .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+        .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        button { padding: 15px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.2s; text-transform: uppercase; }
+        .btn-connect { background-color: #00ff66; color: #000; }
+        .btn-connect:hover { background-color: #00cc52; }
+        .btn-disconnect { background-color: #ff3333; color: white; opacity: 0.5; cursor: not-allowed; }
+        .btn-disconnect.active { opacity: 1; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="codec-panel">
+        <h1>MEU CODEC IP PRO</h1>
+        <div class="status-badge" id="statusLabel">DESCONECTADO</div>
+
+        <div class="vu-modulation-wrapper">
+            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">MODULAÇÃO (PEAK METER):</label>
+            <div class="vu-led-container" id="vuLedBar">
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+            </div>
+            <div class="db-labels">
+                <span>-40 dB</span><span>-20 dB</span><span>-10 dB</span><span>-3 dB</span><span style="color: #ff3333;">0 dB (CLIP)</span>
+            </div>
+        </div>
+
+        <div class="config-section">
+            <h3>1. Canais de Áudio</h3>
+            <div class="form-group">
+                <label for="audioInput">Dispositivo de Entrada (Microfone / Mesa):</label>
+                <select id="audioInput" onchange="reiniciarSeAtivo()"><option>Carregando dispositivos...</option></select>
+            </div>
+            <div class="form-group">
+                <label for="audioOutput">Dispositivo de Saída (Retorno):</label>
+                <select id="audioOutput" onchange="mudarSaida()"><option>Padrão do Sistema</option></select>
+            </div>
+        </div>
+
+        <div class="config-section">
+            <h3>2. Monitoramento de Retorno</h3>
+            <div class="toggle-container">
+                <label for="retornoToggle" style="margin-bottom: 0;">Escutar minha própria voz (Retorno Local):</label>
+                <input type="checkbox" id="retornoToggle" style="width: 20px; height: 20px; cursor: pointer;" onchange="controlarRetorno()">
+            </div>
+            <div class="form-group">
+                <label for="volumeRetorno">Volume do Retorno:</label>
+                <input type="range" id="volumeRetorno" min="0" max="1" step="0.1" value="0.5" oninput="ajustarVolume()">
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn-connect" id="btnConnect" onclick="conectar()">Entrar No Ar</button>
+            <button class="btn-disconnect" id="btnDisconnect" onclick="desconectar()">Cortar</button>
+        </div>
+    </div>
+
+    <audio id="audioRetorno" autoplay></audio>
+
+    <script>
+        let localStream, audioContext, analyser, javascriptNode, sourceNode, gainNode;
+        let isLive = false;
+
+        const audioInputSelect = document.getElementById('audioInput');
+        const audioOutputSelect = document.getElementById('audioOutput');
+        const retornoToggle = document.getElementById('retornoToggle');
+        const volumeRetorno = document.getElementById('volumeRetorno');
+        const statusLabel = document.getElementById('statusLabel');
+        const audioRetorno = document.getElementById('audioRetorno');
+        const leds = document.querySelectorAll('.led');
+
+        async function carregarDispositivos() {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                audioInputSelect.innerHTML = '';
+                audioOutputSelect.innerHTML = '';
+
+                devices.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    if (device.kind === 'audioinput') {
+                        option.text = device.label || `Entrada ${audioInputSelect.length + 1}`;
+                        audioInputSelect.appendChild(option);
+                    } else if (device.kind === 'audiooutput') {
+                        option.text = device.label || `Saída ${audioOutputSelect.length + 1}`;
+                        audioOutputSelect.appendChild(option);
+                    }
+                });
+                statusLabel.innerText = "PRONTO";
+                statusLabel.style.backgroundColor = "#3b82f6";
+            } catch (err) {
+                statusLabel.innerText = "PERMISSÃO NEGADA";
+                statusLabel.style.backgroundColor = "#ff3333";
+            }
+        }
+
+        async function conectar() {
+            if (isLive) return;
+            const inputId = audioInputSelect.value;
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { deviceId: inputId ? { exact: inputId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                sourceNode = audioContext.createMediaStreamSource(localStream);
+                gainNode = audioContext.createGain();
+
+                gainNode.gain.value = retornoToggle.checked ? volumeRetorno.value : 0;
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                
+                analyser.smoothingTimeConstant = 0.3;
+                analyser.fftSize = 512;
+
+                sourceNode.connect(analyser);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination);
+                sourceNode.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                javascriptNode.onaudioprocess = () => {
+                    const array = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(array);
+                    let maxVolume = 0;
+                    for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
+                    const numLedsAcesos = Math.round((maxVolume / 255) * 20);
+
+                    leds.forEach((led, index) => {
+                        const ledLevel = index + 1;
+                        led.className = 'led';
+                        if (ledLevel <= numLedsAcesos) {
+                            if (ledLevel <= 13) led.classList.add('green-on');
+                            else if (ledLevel <= 17) led.classList.add('yellow-on');
+                            else led.classList.add('red-on');
+                        }
+                    });
+                };
+
+                mudarSaida();
+                isLive = true;
+                statusLabel.innerText = "NO AR / MODULANDO";
+                statusLabel.style.backgroundColor = "#00ff66";
+                statusLabel.style.color = "#000";
+                document.getElementById('btnDisconnect').classList.add('active');
+            } catch (err) { alert("Erro: " + err); }
+        }
+
+        function controlarRetorno() { if (gainNode) gainNode.gain.value = retornoToggle.checked ? volumeRetorno.value : 0; }
+        function ajustarVolume() { if (gainNode && retornoToggle.checked) gainNode.gain.value = volumeRetorno.value; }
+        async function mudarSaida() {
+            const outputId = audioOutputSelect.value;
+            if (outputId && audioRetorno.setSinkId) {
+                try { await audioRetorno.setSinkId(outputId); if (localStream) audioRetorno.srcObject = localStream; } catch (err) {}
+            }
+        }
+        function reiniciarSeAtivo() { if (isLive) { desconectar(); conectar(); } }
+        function desconectar() {
+            if (!isLive) return;
+            if (localStream) localStream.getTracks().forEach(track => track.stop());
+            if (audioContext) audioContext.close();
+            leds.forEach(led => led.className = 'led');
+            isLive = false;
+            statusLabel.innerText = "PRONTO";
+            statusLabel.style.backgroundColor = "#3b82f6";
+            statusLabel.style.color = "#fff";
+            document.getElementById('btnDisconnect').classList.remove('active');
+        }
+        window.onload = carregarDispositivos;
+    </script>
+</body>
+</html>
