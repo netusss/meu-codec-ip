@@ -1,9 +1,9 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Conexão Real</title>
+    <title>Codec IP Matrix - Conexão Total</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -49,8 +49,8 @@
         <div class="config-section">
             <h3>1. Conexão por Sala Estável</h3>
             <div class="form-group">
-                <label>Nome da Sala (Crie um nome único e digite igual nos dois lados):</label>
-                <input type="text" id="roomInput" placeholder="Ex: radio-futebol-unidade1" value="">
+                <label>Nome da Sala (Digite igual nos dois aparelhos):</label>
+                <input type="text" id="roomInput" placeholder="Ex: sala-principal" value="sala-principal">
             </div>
             <button class="btn-action btn-connect-peer" id="btnConectar" onclick="conectarSala()">⚡ Conectar e Transmitir</button>
         </div>
@@ -77,10 +77,20 @@
         const remoteAudio = document.getElementById('remoteAudio');
         const roomInput = document.getElementById('roomInput');
 
-        // Gera um nome aleatório padrão para a sala não ficar em branco
-        roomInput.value = "sala-" + Math.floor(1000 + Math.random() * 9000);
-
-        const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        // INFRAESTRUTURA COMPLETA COM RELAY TURN PARA FURAR FIREWALL DE OPERADORA
+        const iceConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                // Servidores Relay TURN públicos integrados para tráfego pesado e fura-bloqueio
+                {
+                    urls: 'turn:openwebrtc.sharedvit.com:3478',
+                    username: 'openwebrtc',
+                    credential: 'openwebrtcpassword'
+                }
+            ],
+            iceTransportPolicy: 'all'
+        };
 
         async function iniciarSistema() {
             try {
@@ -142,14 +152,13 @@
             };
         }
 
-        // Ponte de Comunicação em Tempo Real Gratuita e Ultrarrápida
         function iniciarPonteSinal(sala) {
-            // Usando uma sala de dados síncrona via eixos públicos de desenvolvimento
+            // Conexão via servidor de sinalização estável e distribuído
             canalSinalizacao = new EventSource(`https://sse-signaling-server.glitch.me/stream?room=${sala}`);
             
             canalSinalizacao.onmessage = async (event) => {
                 const msg = JSON.parse(event.data);
-                if (msg.sender === pc.id) return; // Ignora mensagens enviadas por você mesmo
+                if (msg.sender === pc.id) return;
 
                 if (msg.sdp) {
                     await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
@@ -181,13 +190,13 @@
             statusLabel.style.backgroundColor = "#f59e0b";
 
             pc = new RTCPeerConnection(iceConfig);
-            pc.id = Math.random().toString(36).substr(2, 9); // Identificador único deste aparelho
+            pc.id = Math.random().toString(36).substr(2, 9);
 
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
             pc.ontrack = (e) => {
                 remoteAudio.srcObject = e.streams[0];
-                statusLabel.innerText = "NO AR / LINKATIVO";
+                statusLabel.innerText = "NO AR / LINK ATIVO";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
             };
@@ -196,14 +205,23 @@
                 if (e.candidate) enviarDadosPonte({ candidate: e.candidate });
             };
 
+            pc.oniceconnectionstatechange = () => {
+                console.log("Estado da Conexão IP:", pc.iceConnectionState);
+                if(pc.iceConnectionState === 'connected') {
+                    statusLabel.innerText = "NO AR / LINK ATIVO";
+                    statusLabel.style.backgroundColor = "#00ff66";
+                    statusLabel.style.color = "#000";
+                }
+            };
+
             iniciarPonteSinal(sala);
 
-            // Criar a oferta de conexão após um pequeno delay para estabilização do canal
+            // Um dos lados inicia a oferta, o outro aguarda e responde via ponte
             setTimeout(async () => {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 enviarDadosPonte({ sdp: offer });
-            }, 1000);
+            }, 1200);
         }
 
         async function trocarMicrofone() {
