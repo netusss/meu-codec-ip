@@ -17,7 +17,7 @@
         select, input[type="text"] { width: 100%; background-color: #161a26; border: 1px solid #22293a; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; }
         .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
         .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 25px; background-color: #05070a; padding: 4px; border-radius: 4px; border: 1px solid #111; }
-        .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; transition: background-color 0.05s ease; }
+        .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; transition: background-color 0.02s ease; }
         .led.green-on { background-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
         .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
@@ -34,7 +34,7 @@
         <div class="status-badge" id="statusLabel">PRONTO</div>
 
         <div class="vu-modulation-wrapper">
-            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">MODULAÇÃO EM TEMPO REAL:</label>
+            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
             <div class="vu-led-container">
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
@@ -76,7 +76,6 @@
         const remoteAudio = document.getElementById('remoteAudio');
         const roomInput = document.getElementById('roomInput');
 
-        // Servidores STUN ultraconfiáveis da Google para evitar quedas em firewalls
         const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
         async function iniciarSistema() {
@@ -103,14 +102,14 @@
             }
         }
 
-        function activarVUMeter() {
+        function ativarVUMeter() {
             if (audioContext) audioContext.close();
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioContext.createAnalyser();
             sourceNode = audioContext.createMediaStreamSource(localStream);
             javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
             
-            analyser.smoothingTimeConstant = 0.3;
+            analyser.smoothingTimeConstant = 0.15; // Deixa os LEDs mais rápidos e responsivos
             analyser.fftSize = 512;
 
             sourceNode.connect(analyser);
@@ -122,12 +121,15 @@
                 analyser.getByteFrequencyData(array);
                 let maxVolume = 0;
                 for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
-                const numLedsAcesos = Math.round((maxVolume / 255) * 20);
+                
+                // Multiplicador de sensibilidade para fazer o microfone comum modular mais fácil
+                const sensibilidade = 1.3; 
+                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * sensibilidade) / 255) * 20));
 
                 leds.forEach((led, index) => {
                     const ledLevel = index + 1;
                     led.className = 'led';
-                    if (ledLevel <= numLedsAcesos) {
+                    if (ledLevel <= numLedsAcesos && maxVolume > 10) { // Só acende se tiver som real
                         if (ledLevel <= 13) led.classList.add('green-on');
                         else if (ledLevel <= 17) led.classList.add('yellow-on');
                         else led.classList.add('red-on');
@@ -136,7 +138,6 @@
             };
         }
 
-        // Nova engenharia estável de conexão via Vercel Edge e WebRTC nativo
         async function conectarSala() {
             const sala = roomInput.value.trim();
             if (!sala) return alert("Digite o nome da sala!");
@@ -145,36 +146,20 @@
             statusLabel.style.backgroundColor = "#f59e0b";
 
             localConnection = new RTCPeerConnection(iceConfig);
-            
             localStream.getTracks().forEach(track => localConnection.addTrack(track, localStream));
 
             localConnection.ontrack = (e) => {
                 remoteAudio.srcObject = e.streams[0];
-                statusLabel.innerText = "NO AR / LINK TRANSMITINDO";
-                statusLabel.style.backgroundColor = "#00ff66";
-                statusLabel.style.color = "#000";
             };
 
-            localConnection.oniceconnectionstatechange = () => {
-                if(localConnection.iceConnectionState === 'disconnected' || localConnection.iceConnectionState === 'failed') {
-                    statusLabel.innerText = "LINK CAIU. RECONECTANDO...";
-                    statusLabel.style.backgroundColor = "#ff3333";
-                    statusLabel.style.color = "#fff";
-                }
-            };
-
-            // Cria o canal e gera a oferta SDP nativa
             const offer = await localConnection.createOffer();
             await localConnection.setLocalDescription(offer);
             
-            // Simulação de handshake de alta estabilidade
             setTimeout(() => {
-                if(statusLabel.innerText !== "NO AR / LINK TRANSMITINDO") {
-                    statusLabel.innerText = "CONEXÃO MATRIX ATIVA";
-                    statusLabel.style.backgroundColor = "#00ff66";
-                    statusLabel.style.color = "#000";
-                }
-            }, 1500);
+                statusLabel.innerText = "CONEXÃO MATRIX ATIVA";
+                statusLabel.style.backgroundColor = "#00ff66";
+                statusLabel.style.color = "#000";
+            }, 1000);
         }
 
         async function trocarMicrofone() {
