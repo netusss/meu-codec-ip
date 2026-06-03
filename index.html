@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Codec IP - Link de Transmissão</title>
+    <title>Meu Codec IP - Link de Transmissão Estável</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
@@ -26,7 +26,6 @@
         .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; padding: 0 4px; }
         .connection-box { display: grid; grid-template-columns: 1fr; gap: 10px; }
         .btn-action { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
-        .btn-start { background-color: #00ff66; color: #000; }
         .btn-connect-peer { background-color: #3b82f6; color: #fff; }
         .btn-disconnect { background-color: #ff3333; color: white; }
     </style>
@@ -35,7 +34,7 @@
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MULTILINK</h1>
-        <div class="status-badge" id="statusLabel">CONECTANDO AO SERVIDOR DE REDE...</div>
+        <div class="status-badge" id="statusLabel">CONECTANDO AO SERVIDOR...</div>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
@@ -79,6 +78,7 @@
 
     <script>
         let localStream, peer, currentCall, audioContext, analyser, javascriptNode, sourceNode;
+        let salvoRemoteId = ""; 
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const myIdDisplay = document.getElementById('myIdDisplay');
@@ -86,14 +86,12 @@
         const audioInputSelect = document.getElementById('audioInput');
         const remoteAudio = document.getElementById('remoteAudio');
 
-        // Inicializa o hardware de som
         async function inicializarAudio() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
                 
-                // Popula a lista de microfones
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 audioInputSelect.innerHTML = '';
                 devices.forEach(device => {
@@ -113,7 +111,24 @@
             }
         }
 
-        // Lógica do VU Meter Local
+        function ativandoReconexaoAutomatica() {
+            statusLabel.innerText = "RECONECTANDO LINK...";
+            statusLabel.style.backgroundColor = "#f59e0b";
+            statusLabel.style.color = "#fff";
+            
+            setTimeout(() => {
+                if (peer && peer.destroyed) {
+                    inicializarRedeP2P();
+                } else if (peer && peer.disconnected) {
+                    peer.reconnect();
+                }
+                
+                if (salvoRemoteId) {
+                    conectarAoParticipante(salvoRemoteId);
+                }
+            }, 3000); // Tenta reatar o sinal a cada 3 segundos se cair
+        }
+
         function ativarVUMeter() {
             if (audioContext) audioContext.close();
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -147,56 +162,56 @@
             };
         }
 
-        // Inicializa a rede de transmissão ponto a ponto gratuita (PeerJS)
         function inicializarRedeP2P() {
             peer = new Peer({ debug: 1 });
 
-            // Recebe o ID de rede gerado automaticamente
             peer.on('open', (id) => {
                 myIdDisplay.value = id;
                 statusLabel.innerText = "PRONTO / AGUARDANDO LINK";
                 statusLabel.style.backgroundColor = "#3b82f6";
             });
 
-            // Lógica para receber chamada (Estúdio recebendo áudio do repórter de rua)
             peer.on('call', (call) => {
                 currentCall = call;
                 statusLabel.innerText = "LINK ESTABELECIDO / NO AR";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
 
-                // Atende enviando o próprio microfone profissional de volta
                 call.answer(localStream);
-
-                // Recebe o áudio da outra pessoa e toca no fone/caixa
                 call.on('stream', (remoteStream) => {
                     remoteAudio.srcObject = remoteStream;
                 });
+                
+                call.on('close', () => ativandoReconexaoAutomatica());
             });
 
+            // Tratamento contra quedas de servidor
+            peer.on('disconnected', () => ativandoReconexaoAutomatica());
+            peer.on('close', () => ativandoReconexaoAutomatica());
             peer.on('error', (err) => {
-                alert("Erro de Link na Rede: " + err.type);
+                console.log("Erro de Link ignorado (Tratando reconexão): ", err.type);
+                ativandoReconexaoAutomatica();
             });
         }
 
-        // Lógica para iniciar a chamada (Repórter discando para o ID do estúdio)
-        function conectarAoParticipante() {
-            const remoteId = remoteIdInput.value.trim();
+        function conectarAoParticipante(forceId = "") {
+            const remoteId = forceId || remoteIdInput.value.trim();
             if (!remoteId) return alert("Por favor, cole o ID do participante remoto!");
 
+            salvoRemoteId = remoteId; // Memoriza para reconectar em caso de queda
             statusLabel.innerText = "CONECTANDO LINK IP...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            // Liga para o outro participante enviando nosso áudio
             currentCall = peer.call(remoteId, localStream);
 
-            // Quando ele atender, pega o áudio dele de volta
             currentCall.on('stream', (remoteStream) => {
                 remoteAudio.srcObject = remoteStream;
                 statusLabel.innerText = "LINK TRANSMITINDO / NO AR";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
             });
+
+            currentCall.on('close', () => ativandoReconexaoAutomatica());
         }
 
         async function reiniciarStream() {
@@ -214,12 +229,11 @@
         }
 
         function desconectarTudo() {
+            salvoRemoteId = "";
             if (currentCall) currentCall.close();
+            if (peer) peer.disconnect();
             remoteAudio.srcObject = null;
-            statusLabel.innerText = "PRONTO / AGUARDANDO LINK";
-            statusLabel.style.backgroundColor = "#3b82f6";
-            statusLabel.style.color = "#fff";
-            remoteIdInput.value = "";
+            setTimeout(() => inicializarRedeP2P(), 1000);
         }
 
         window.onload = inicializarAudio;
