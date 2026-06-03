@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Alta Estabilidade</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
+    <title>Codec IP Matrix - Servidor Dedicado</title>
+    <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -15,8 +15,7 @@
         .config-section h3 { font-size: 13px; color: #00f2fe; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
-        select, input[type="text"], textarea { width: 100%; background-color: #161a26; border: 1px solid #22293a; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; }
-        textarea { font-family: monospace; height: 80px; resize: none; font-size: 11px; color: #00f2fe; }
+        select, input[type="text"] { width: 100%; background-color: #161a26; border: 1px solid #22293a; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; }
         .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
         .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 25px; background-color: #05070a; padding: 4px; border-radius: 4px; border: 1px solid #111; }
         .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; transition: background-color 0.02s ease; }
@@ -33,7 +32,7 @@
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">CONFIGURANDO AUDIO...</div>
+        <div class="status-badge" id="statusLabel">CARREGANDO MICROFONE...</div>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
@@ -49,16 +48,12 @@
         </div>
 
         <div class="config-section">
-            <h3>1. Chave de Pareamento Sem Servidor (Fura Qualquer Bloqueio)</h3>
+            <h3>1. Conexão por Sala Estável</h3>
             <div class="form-group">
-                <label>Sua Chave Local (Copie e envie para o outro aparelho):</label>
-                <textarea id="localCode" readonly placeholder="Gerando chave..."></textarea>
+                <label>Nome da Sala (Digite igual nos dois aparelhos):</label>
+                <input type="text" id="roomInput" placeholder="Ex: sala-principal" value="sala-principal">
             </div>
-            <div class="form-group">
-                <label>Colar Chave do Aparelho Remoto:</label>
-                <textarea id="remoteCode" placeholder="Cole aqui a chave gerada pelo outro PC ou Celular"></textarea>
-            </div>
-            <button class="btn-action btn-connect-peer" onclick="conectarChave()">⚡ Validar e Conectar Link</button>
+            <button class="btn-action btn-connect-peer" id="btnConectar" onclick="conectarSala()">⚡ Conectar e Transmitir</button>
         </div>
 
         <div class="config-section">
@@ -75,13 +70,22 @@
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        let localStream, p, audioContext, analyser, javascriptNode, sourceNode;
+        // COLOQUE SEU ID DO SCALEDRONE ENTRE AS ASPAS ABAIXO:
+        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH';
+
+        let localStream, pc, audioContext, analyser, javascriptNode, sourceNode, drone, room;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const audioInputSelect = document.getElementById('audioInput');
         const remoteAudio = document.getElementById('remoteAudio');
-        const localCodeArea = document.getElementById('localCode');
-        const remoteCodeArea = document.getElementById('remoteCode');
+        const roomInput = document.getElementById('roomInput');
+
+        const iceConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
 
         async function iniciarSistema() {
             try {
@@ -100,78 +104,97 @@
                     }
                 });
 
-                statusLabel.innerText = "PRONTO PARA CRIAR LINK";
+                statusLabel.innerText = "PRONTO";
                 statusLabel.style.backgroundColor = "#3b82f6";
                 ativarVUMeter();
-                criarInstanciaPeer(true); // Inicializa como criador do link por padrão
             } catch (err) {
                 statusLabel.innerText = "ERRO DE AUDIO";
                 statusLabel.style.backgroundColor = "#ff3333";
             }
         }
 
-        function criarInstanciaPeer(isInitiator) {
-            if (p) p.destroy();
+        function conectarSala() {
+            const sala = roomInput.value.trim();
+            if (!sala) return alert("Defina o nome da sala!");
+            if (SCALEDRONE_CHANNEL_ID === 'SUA_CHAVE_AQUI') return alert("Por favor, insira seu Channel ID no código!");
 
-            p = new SimplePeer({
-                initiator: isInitiator,
-                trickle: false,
-                stream: localStream,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                }
+            statusLabel.innerText = "CONECTANDO AO SERVIDOR...";
+            statusLabel.style.backgroundColor = "#f59e0b";
+
+            // Inicializa a ponte de sinalização profissional
+            drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
+            
+            drone.on('open', error => {
+                if (error) return console.error(error);
+                room = drone.subscribe(`observable-${sala}`);
+                
+                room.on('open', error => {
+                    if (error) return console.error(error);
+                    statusLabel.innerText = "SALA CONECTADA / AGUARDANDO PAR";
+                    statusLabel.style.backgroundColor = "#10b981";
+                    configurarWebRTC(true);
+                });
+
+                room.on('data', (message, client) => {
+                    if (client.id === drone.clientId) return; // Ignora mensagens próprias
+
+                    if (message.sdp) {
+                        pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
+                            if (pc.remoteDescription.type === 'offer') {
+                                pc.createAnswer().setLocalDescriptionAndSendMessage();
+                            }
+                        }, console.error);
+                    } else if (message.candidate) {
+                        pc.addIceCandidate(new RTCIceCandidate(message.candidate), () => {}, console.error);
+                    }
+                });
             });
+        }
 
-            p.on('signal', data => {
-                localCodeArea.value = btoa(JSON.stringify(data));
-            });
+        function configurarWebRTC(isInitiator) {
+            pc = new RTCPeerConnection(iceConfig);
 
-            p.on('stream', stream => {
-                remoteAudio.srcObject = stream;
+            pc.onicecandidate = event => {
+                if (event.candidate) enviarMensagemSinal({ candidate: event.candidate });
+            };
+
+            if (isInitiator) {
+                pc.onnegotiationneeded = () => {
+                    pc.createOffer().setLocalDescriptionAndSendMessage();
+                };
+            }
+
+            pc.ontrack = event => {
+                remoteAudio.srcObject = event.streams[0];
                 statusLabel.innerText = "NO AR / LINK ATIVO";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
-            });
+            };
 
-            p.on('error', err => {
-                console.error('Erro de conexão:', err);
-                statusLabel.innerText = "LINK DESCONECTADO";
-                statusLabel.style.backgroundColor = "#ff3333";
-                statusLabel.style.color = "#fff";
-            });
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
 
-            p.on('close', () => {
-                statusLabel.innerText = "LINK ENCERRADO";
-                statusLabel.style.backgroundColor = "#22293a";
+        // Extensão para simplificar o envio das ofertas/respostas
+        RTCPeerConnection.prototype.setLocalDescriptionAndSendMessage = function() {
+            this.createOfferOrAnswer().then(description => {
+                this.setLocalDescription(description, () => {
+                    enviarMensagemSinal({ sdp: this.localDescription });
+                }, console.error);
+            });
+        };
+
+        RTCPeerConnection.prototype.createOfferOrAnswer = function() {
+            return this.remoteDescription ? this.createAnswer() : this.createOffer();
+        };
+
+        function enviarMensagemSinal(message) {
+            drone.publish({
+                room: `observable-${roomInput.value.trim()}`,
+                message
             });
         }
 
-        function conectarChave() {
-            const rawCode = remoteCodeArea.value.trim();
-            if (!rawCode) return alert("Por favor, cole a chave do outro aparelho!");
-
-            try {
-                const parsedData = JSON.parse(atob(rawCode));
-                
-                // Se o código colado for uma oferta e nós também iniciamos, mudamos para modo receptor
-                if (parsedData.type === 'offer' && p.initiator) {
-                    criarInstanciaPeer(false);
-                    p.signal(parsedData);
-                } else {
-                    p.signal(parsedData);
-                }
-                
-                statusLabel.innerText = "ESTABELECENDO LINK...";
-                statusLabel.style.backgroundColor = "#f59e0b";
-            } catch (e) {
-                alert("Chave inválida ou corrompida! Verifique se copiou o texto completo.");
-            }
-        }
-
-        function ativarVUMeter() {
+        function activarVUMeter() {
             if (audioContext) audioContext.close();
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioContext.createAnalyser();
@@ -212,10 +235,6 @@
                 audio: { deviceId: inputId ? { exact: inputId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
             });
             ativarVUMeter();
-            if (p) {
-                const sender = p._pc.getSenders().find(s => s.track.kind === 'audio');
-                if (sender) sender.replaceTrack(localStream.getAudioTracks()[0]);
-            }
         }
 
         window.onload = iniciarSistema;
