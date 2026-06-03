@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Conexão Total</title>
+    <title>Codec IP Matrix - Alta Estabilidade</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -14,7 +15,8 @@
         .config-section h3 { font-size: 13px; color: #00f2fe; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
-        select, input[type="text"] { width: 100%; background-color: #161a26; border: 1px solid #22293a; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; }
+        select, input[type="text"], textarea { width: 100%; background-color: #161a26; border: 1px solid #22293a; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; }
+        textarea { font-family: monospace; height: 80px; resize: none; font-size: 11px; color: #00f2fe; }
         .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
         .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 25px; background-color: #05070a; padding: 4px; border-radius: 4px; border: 1px solid #111; }
         .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; transition: background-color 0.02s ease; }
@@ -31,7 +33,7 @@
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">CARREGANDO MICROFONE...</div>
+        <div class="status-badge" id="statusLabel">CONFIGURANDO AUDIO...</div>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
@@ -47,12 +49,16 @@
         </div>
 
         <div class="config-section">
-            <h3>1. Conexão por Sala Estável</h3>
+            <h3>1. Chave de Pareamento Sem Servidor (Fura Qualquer Bloqueio)</h3>
             <div class="form-group">
-                <label>Nome da Sala (Digite igual nos dois aparelhos):</label>
-                <input type="text" id="roomInput" placeholder="Ex: sala-principal" value="sala-principal">
+                <label>Sua Chave Local (Copie e envie para o outro aparelho):</label>
+                <textarea id="localCode" readonly placeholder="Gerando chave..."></textarea>
             </div>
-            <button class="btn-action btn-connect-peer" id="btnConectar" onclick="conectarSala()">⚡ Conectar e Transmitir</button>
+            <div class="form-group">
+                <label>Colar Chave do Aparelho Remoto:</label>
+                <textarea id="remoteCode" placeholder="Cole aqui a chave gerada pelo outro PC ou Celular"></textarea>
+            </div>
+            <button class="btn-action btn-connect-peer" onclick="conectarChave()">⚡ Validar e Conectar Link</button>
         </div>
 
         <div class="config-section">
@@ -69,28 +75,13 @@
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        let localStream, pc, audioContext, analyser, javascriptNode, sourceNode;
-        let canalSinalizacao;
+        let localStream, p, audioContext, analyser, javascriptNode, sourceNode;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const audioInputSelect = document.getElementById('audioInput');
         const remoteAudio = document.getElementById('remoteAudio');
-        const roomInput = document.getElementById('roomInput');
-
-        // INFRAESTRUTURA COMPLETA COM RELAY TURN PARA FURAR FIREWALL DE OPERADORA
-        const iceConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                // Servidores Relay TURN públicos integrados para tráfego pesado e fura-bloqueio
-                {
-                    urls: 'turn:openwebrtc.sharedvit.com:3478',
-                    username: 'openwebrtc',
-                    credential: 'openwebrtcpassword'
-                }
-            ],
-            iceTransportPolicy: 'all'
-        };
+        const localCodeArea = document.getElementById('localCode');
+        const remoteCodeArea = document.getElementById('remoteCode');
 
         async function iniciarSistema() {
             try {
@@ -109,12 +100,74 @@
                     }
                 });
 
-                statusLabel.innerText = "PRONTO";
+                statusLabel.innerText = "PRONTO PARA CRIAR LINK";
                 statusLabel.style.backgroundColor = "#3b82f6";
                 ativarVUMeter();
+                criarInstanciaPeer(true); // Inicializa como criador do link por padrão
             } catch (err) {
                 statusLabel.innerText = "ERRO DE AUDIO";
                 statusLabel.style.backgroundColor = "#ff3333";
+            }
+        }
+
+        function criarInstanciaPeer(isInitiator) {
+            if (p) p.destroy();
+
+            p = new SimplePeer({
+                initiator: isInitiator,
+                trickle: false,
+                stream: localStream,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+
+            p.on('signal', data => {
+                localCodeArea.value = btoa(JSON.stringify(data));
+            });
+
+            p.on('stream', stream => {
+                remoteAudio.srcObject = stream;
+                statusLabel.innerText = "NO AR / LINK ATIVO";
+                statusLabel.style.backgroundColor = "#00ff66";
+                statusLabel.style.color = "#000";
+            });
+
+            p.on('error', err => {
+                console.error('Erro de conexão:', err);
+                statusLabel.innerText = "LINK DESCONECTADO";
+                statusLabel.style.backgroundColor = "#ff3333";
+                statusLabel.style.color = "#fff";
+            });
+
+            p.on('close', () => {
+                statusLabel.innerText = "LINK ENCERRADO";
+                statusLabel.style.backgroundColor = "#22293a";
+            });
+        }
+
+        function conectarChave() {
+            const rawCode = remoteCodeArea.value.trim();
+            if (!rawCode) return alert("Por favor, cole a chave do outro aparelho!");
+
+            try {
+                const parsedData = JSON.parse(atob(rawCode));
+                
+                // Se o código colado for uma oferta e nós também iniciamos, mudamos para modo receptor
+                if (parsedData.type === 'offer' && p.initiator) {
+                    criarInstanciaPeer(false);
+                    p.signal(parsedData);
+                } else {
+                    p.signal(parsedData);
+                }
+                
+                statusLabel.innerText = "ESTABELECENDO LINK...";
+                statusLabel.style.backgroundColor = "#f59e0b";
+            } catch (e) {
+                alert("Chave inválida ou corrompida! Verifique se copiou o texto completo.");
             }
         }
 
@@ -152,78 +205,6 @@
             };
         }
 
-        function iniciarPonteSinal(sala) {
-            // Conexão via servidor de sinalização estável e distribuído
-            canalSinalizacao = new EventSource(`https://sse-signaling-server.glitch.me/stream?room=${sala}`);
-            
-            canalSinalizacao.onmessage = async (event) => {
-                const msg = JSON.parse(event.data);
-                if (msg.sender === pc.id) return;
-
-                if (msg.sdp) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-                    if (msg.sdp.type === 'offer') {
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        enviarDadosPonte({ sdp: answer });
-                    }
-                } else if (msg.candidate) {
-                    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch(e) {}
-                }
-            };
-        }
-
-        function enviarDadosPonte(dados) {
-            dados.sender = pc.id;
-            fetch(`https://sse-signaling-server.glitch.me/message?room=${roomInput.value.trim()}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados)
-            });
-        }
-
-        async function conectarSala() {
-            const sala = roomInput.value.trim();
-            if (!sala) return alert("Defina o nome da sala!");
-
-            statusLabel.innerText = "CONECTANDO LINK IP...";
-            statusLabel.style.backgroundColor = "#f59e0b";
-
-            pc = new RTCPeerConnection(iceConfig);
-            pc.id = Math.random().toString(36).substr(2, 9);
-
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-            pc.ontrack = (e) => {
-                remoteAudio.srcObject = e.streams[0];
-                statusLabel.innerText = "NO AR / LINK ATIVO";
-                statusLabel.style.backgroundColor = "#00ff66";
-                statusLabel.style.color = "#000";
-            };
-
-            pc.onicecandidate = (e) => {
-                if (e.candidate) enviarDadosPonte({ candidate: e.candidate });
-            };
-
-            pc.oniceconnectionstatechange = () => {
-                console.log("Estado da Conexão IP:", pc.iceConnectionState);
-                if(pc.iceConnectionState === 'connected') {
-                    statusLabel.innerText = "NO AR / LINK ATIVO";
-                    statusLabel.style.backgroundColor = "#00ff66";
-                    statusLabel.style.color = "#000";
-                }
-            };
-
-            iniciarPonteSinal(sala);
-
-            // Um dos lados inicia a oferta, o outro aguarda e responde via ponte
-            setTimeout(async () => {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                enviarDadosPonte({ sdp: offer });
-            }, 1200);
-        }
-
         async function trocarMicrofone() {
             const inputId = audioInputSelect.value;
             if (localStream) localStream.getTracks().forEach(track => track.stop());
@@ -231,6 +212,10 @@
                 audio: { deviceId: inputId ? { exact: inputId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
             });
             ativarVUMeter();
+            if (p) {
+                const sender = p._pc.getSenders().find(s => s.track.kind === 'audio');
+                if (sender) sender.replaceTrack(localStream.getAudioTracks()[0]);
+            }
         }
 
         window.onload = iniciarSistema;
