@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Servidor Dedicado</title>
-    <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
+    <title>Codec IP Matrix - Premium</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -27,12 +26,13 @@
         .btn-connect-peer { background-color: #00ff66; color: #000; }
         .btn-disconnect { background-color: #ff3333; color: white; }
     </style>
+    <script src="https://cdn.scaledrone.com/scaledrone.min.js" async></script>
 </head>
 <body>
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">CARREGANDO MICROFONE...</div>
+        <div class="status-badge" id="statusLabel">INICIANDO...</div>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
@@ -70,8 +70,8 @@
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        // COLOQUE SEU ID DO SCALEDRONE ENTRE AS ASPAS ABAIXO:
-        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH';
+        // ATENÇÃO: COLOQUE SEU ID DO SCALEDRONE ENTRE AS ASPAS ABAIXO:
+        const SCALEDRONE_CHANNEL_ID = 'SUA_CHAVE_AQUI';
 
         let localStream, pc, audioContext, analyser, javascriptNode, sourceNode, drone, room;
         const leds = document.querySelectorAll('.led');
@@ -87,6 +87,7 @@
             ]
         };
 
+        // Força a inicialização do áudio ANTES de qualquer conexão de rede
         async function iniciarSistema() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
@@ -113,15 +114,54 @@
             }
         }
 
+        function activarVUMeter() {
+            if (audioContext) audioContext.close();
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            sourceNode = audioContext.createMediaStreamSource(localStream);
+            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+            
+            analyser.smoothingTimeConstant = 0.12;
+            analyser.fftSize = 512;
+
+            sourceNode.connect(analyser);
+            analyser.connect(javascriptNode);
+            javascriptNode.connect(audioContext.destination);
+
+            javascriptNode.onaudioprocess = () => {
+                const array = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(array);
+                let maxVolume = 0;
+                for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
+                
+                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.4) / 255) * 20));
+
+                leds.forEach((led, index) => {
+                    const ledLevel = index + 1;
+                    led.className = 'led';
+                    if (ledLevel <= numLedsAcesos && maxVolume > 10) {
+                        if (ledLevel <= 13) led.classList.add('green-on');
+                        else if (ledLevel <= 17) led.classList.add('yellow-on');
+                        else led.classList.add('red-on');
+                    }
+                });
+            };
+        }
+
         function conectarSala() {
             const sala = roomInput.value.trim();
             if (!sala) return alert("Defina o nome da sala!");
-            if (SCALEDRONE_CHANNEL_ID === 'SUA_CHAVE_AQUI') return alert("Por favor, insira seu Channel ID no código!");
+            if (SCALEDRONE_CHANNEL_ID === 'SUA_CHAVE_AQUI' || !SCALEDRONE_CHANNEL_ID) {
+                return alert("Insira o seu Channel ID do ScaleDrone na linha 62 do código!");
+            }
 
             statusLabel.innerText = "CONECTANDO AO SERVIDOR...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            // Inicializa a ponte de sinalização profissional
+            if (typeof ScaleDrone === 'undefined') {
+                return alert("Aguarde 2 segundos e clique novamente (servidor carregando)...");
+            }
+
             drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
             
             drone.on('open', error => {
@@ -136,12 +176,16 @@
                 });
 
                 room.on('data', (message, client) => {
-                    if (client.id === drone.clientId) return; // Ignora mensagens próprias
+                    if (client.id === drone.clientId) return;
 
                     if (message.sdp) {
                         pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
                             if (pc.remoteDescription.type === 'offer') {
-                                pc.createAnswer().setLocalDescriptionAndSendMessage();
+                                pc.createAnswer().then(description => {
+                                    pc.setLocalDescription(description, () => {
+                                        enviarMensagemSinal({ sdp: pc.localDescription });
+                                    }, console.error);
+                                });
                             }
                         }, console.error);
                     } else if (message.candidate) {
@@ -160,7 +204,11 @@
 
             if (isInitiator) {
                 pc.onnegotiationneeded = () => {
-                    pc.createOffer().setLocalDescriptionAndSendMessage();
+                    pc.createOffer().then(description => {
+                        pc.setLocalDescription(description, () => {
+                            enviarMensagemSinal({ sdp: pc.localDescription });
+                        }, console.error);
+                    });
                 };
             }
 
@@ -174,58 +222,11 @@
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
         }
 
-        // Extensão para simplificar o envio das ofertas/respostas
-        RTCPeerConnection.prototype.setLocalDescriptionAndSendMessage = function() {
-            this.createOfferOrAnswer().then(description => {
-                this.setLocalDescription(description, () => {
-                    enviarMensagemSinal({ sdp: this.localDescription });
-                }, console.error);
-            });
-        };
-
-        RTCPeerConnection.prototype.createOfferOrAnswer = function() {
-            return this.remoteDescription ? this.createAnswer() : this.createOffer();
-        };
-
         function enviarMensagemSinal(message) {
             drone.publish({
                 room: `observable-${roomInput.value.trim()}`,
                 message
             });
-        }
-
-        function activarVUMeter() {
-            if (audioContext) audioContext.close();
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            sourceNode = audioContext.createMediaStreamSource(localStream);
-            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
-            
-            analyser.smoothingTimeConstant = 0.15;
-            analyser.fftSize = 512;
-
-            sourceNode.connect(analyser);
-            analyser.connect(javascriptNode);
-            javascriptNode.connect(audioContext.destination);
-
-            javascriptNode.onaudioprocess = () => {
-                const array = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(array);
-                let maxVolume = 0;
-                for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
-                
-                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.3) / 255) * 20));
-
-                leds.forEach((led, index) => {
-                    const ledLevel = index + 1;
-                    led.className = 'led';
-                    if (ledLevel <= numLedsAcesos && maxVolume > 10) {
-                        if (ledLevel <= 13) led.classList.add('green-on');
-                        else if (ledLevel <= 17) led.classList.add('yellow-on');
-                        else led.classList.add('red-on');
-                    }
-                });
-            };
         }
 
         async function trocarMicrofone() {
