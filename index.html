@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Estável - Vercel Edition</title>
+    <title>Codec IP Matrix - Conexão Real</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -23,7 +23,7 @@
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
         .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; padding: 0 4px; }
         .btn-action { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
-        .btn-connect-peer { background-color: #3b82f6; color: #fff; }
+        .btn-connect-peer { background-color: #00ff66; color: #000; }
         .btn-disconnect { background-color: #ff3333; color: white; }
     </style>
 </head>
@@ -31,7 +31,7 @@
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">PRONTO</div>
+        <div class="status-badge" id="statusLabel">CARREGANDO MICROFONE...</div>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
@@ -49,10 +49,10 @@
         <div class="config-section">
             <h3>1. Conexão por Sala Estável</h3>
             <div class="form-group">
-                <label>Nome da Sala (Digite o mesmo nome nos dois computadores):</label>
-                <input type="text" id="roomInput" placeholder="Ex: radio-futebol-unidade1" value="sala-principal">
+                <label>Nome da Sala (Crie um nome único e digite igual nos dois lados):</label>
+                <input type="text" id="roomInput" placeholder="Ex: radio-futebol-unidade1" value="">
             </div>
-            <button class="btn-action btn-connect-peer" onclick="conectarSala()">⚡ Entrar e Conectar na Sala</button>
+            <button class="btn-action btn-connect-peer" id="btnConectar" onclick="conectarSala()">⚡ Conectar e Transmitir</button>
         </div>
 
         <div class="config-section">
@@ -63,18 +63,22 @@
             </div>
         </div>
 
-        <button class="btn-action btn-disconnect" onclick="location.reload()">Cortar e Resetar Tudo</button>
+        <button class="btn-action btn-disconnect" onclick="location.reload()">Cortar / Resetar</button>
     </div>
 
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        let localStream, localConnection, audioContext, analyser, javascriptNode, sourceNode;
+        let localStream, pc, audioContext, analyser, javascriptNode, sourceNode;
+        let canalSinalizacao;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const audioInputSelect = document.getElementById('audioInput');
         const remoteAudio = document.getElementById('remoteAudio');
         const roomInput = document.getElementById('roomInput');
+
+        // Gera um nome aleatório padrão para a sala não ficar em branco
+        roomInput.value = "sala-" + Math.floor(1000 + Math.random() * 9000);
 
         const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
@@ -95,9 +99,11 @@
                     }
                 });
 
+                statusLabel.innerText = "PRONTO";
+                statusLabel.style.backgroundColor = "#3b82f6";
                 ativarVUMeter();
             } catch (err) {
-                statusLabel.innerText = "ERRO AO CARREGAR ÁUDIO";
+                statusLabel.innerText = "ERRO DE AUDIO";
                 statusLabel.style.backgroundColor = "#ff3333";
             }
         }
@@ -109,7 +115,7 @@
             sourceNode = audioContext.createMediaStreamSource(localStream);
             javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
             
-            analyser.smoothingTimeConstant = 0.15; // Deixa os LEDs mais rápidos e responsivos
+            analyser.smoothingTimeConstant = 0.15;
             analyser.fftSize = 512;
 
             sourceNode.connect(analyser);
@@ -122,14 +128,12 @@
                 let maxVolume = 0;
                 for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
                 
-                // Multiplicador de sensibilidade para fazer o microfone comum modular mais fácil
-                const sensibilidade = 1.3; 
-                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * sensibilidade) / 255) * 20));
+                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.3) / 255) * 20));
 
                 leds.forEach((led, index) => {
                     const ledLevel = index + 1;
                     led.className = 'led';
-                    if (ledLevel <= numLedsAcesos && maxVolume > 10) { // Só acende se tiver som real
+                    if (ledLevel <= numLedsAcesos && maxVolume > 10) {
                         if (ledLevel <= 13) led.classList.add('green-on');
                         else if (ledLevel <= 17) led.classList.add('yellow-on');
                         else led.classList.add('red-on');
@@ -138,27 +142,67 @@
             };
         }
 
+        // Ponte de Comunicação em Tempo Real Gratuita e Ultrarrápida
+        function iniciarPonteSinal(sala) {
+            // Usando uma sala de dados síncrona via eixos públicos de desenvolvimento
+            canalSinalizacao = new EventSource(`https://sse-signaling-server.glitch.me/stream?room=${sala}`);
+            
+            canalSinalizacao.onmessage = async (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.sender === pc.id) return; // Ignora mensagens enviadas por você mesmo
+
+                if (msg.sdp) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                    if (msg.sdp.type === 'offer') {
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        enviarDadosPonte({ sdp: answer });
+                    }
+                } else if (msg.candidate) {
+                    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch(e) {}
+                }
+            };
+        }
+
+        function enviarDadosPonte(dados) {
+            dados.sender = pc.id;
+            fetch(`https://sse-signaling-server.glitch.me/message?room=${roomInput.value.trim()}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            });
+        }
+
         async function conectarSala() {
             const sala = roomInput.value.trim();
-            if (!sala) return alert("Digite o nome da sala!");
+            if (!sala) return alert("Defina o nome da sala!");
 
-            statusLabel.innerText = "CONECTANDO LINK DE RÁDIO...";
+            statusLabel.innerText = "CONECTANDO LINK IP...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            localConnection = new RTCPeerConnection(iceConfig);
-            localStream.getTracks().forEach(track => localConnection.addTrack(track, localStream));
+            pc = new RTCPeerConnection(iceConfig);
+            pc.id = Math.random().toString(36).substr(2, 9); // Identificador único deste aparelho
 
-            localConnection.ontrack = (e) => {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            pc.ontrack = (e) => {
                 remoteAudio.srcObject = e.streams[0];
-            };
-
-            const offer = await localConnection.createOffer();
-            await localConnection.setLocalDescription(offer);
-            
-            setTimeout(() => {
-                statusLabel.innerText = "CONEXÃO MATRIX ATIVA";
+                statusLabel.innerText = "NO AR / LINKATIVO";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
+            };
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate) enviarDadosPonte({ candidate: e.candidate });
+            };
+
+            iniciarPonteSinal(sala);
+
+            // Criar a oferta de conexão após um pequeno delay para estabilização do canal
+            setTimeout(async () => {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                enviarDadosPonte({ sdp: offer });
             }, 1000);
         }
 
