@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Estabilidade</title>
+    <title>Codec IP Matrix - Estabilidade Máxima</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -31,7 +31,7 @@
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">SOLICITANDO ÁUDIO LOCAL...</div>
+        <div class="status-badge" id="statusLabel">SOLICITANDO ÁUDIO...</div>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
@@ -70,7 +70,7 @@
 
     <script>
         // COLOQUE SEU ID DO SCALEDRONE ENTRE AS ASPAS:
-        const SCALEDRONE_CHANNEL_ID = 'yRQhSB7U1UbP5z81Lbo5PST4Hu1FQcwC';
+        const SCALEDRONE_CHANNEL_ID = 'SUA_CHAVE_AQUI';
 
         let localStream, pc, audioContext, analyser, javascriptNode, sourceNode, drone, room;
         const leds = document.querySelectorAll('.led');
@@ -86,92 +86,111 @@
             ]
         };
 
-        // Roda IMEDIATAMENTE ao abrir a página, sem depender de scripts externos
+        // Inicialização nativa do áudio com tratamento de erro resiliente
         async function iniciarSistema() {
             try {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                }
+
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
 
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 audioInputSelect.innerHTML = '';
+                let hasMicrophone = false;
+
                 devices.forEach(device => {
                     if (device.kind === 'audioinput') {
                         const option = document.createElement('option');
                         option.value = device.deviceId;
                         option.text = device.label || `Microfone ${audioInputSelect.length + 1}`;
                         audioInputSelect.appendChild(option);
+                        hasMicrophone = true;
                     }
                 });
 
                 statusLabel.innerText = "PRONTO";
                 statusLabel.style.backgroundColor = "#3b82f6";
+                statusLabel.style.color = "#fff";
                 ativarVUMeter();
+                carregarScriptDrone();
             } catch (err) {
-                statusLabel.innerText = "ERRO DE AUDIO";
+                statusLabel.innerText = "ERRO: CLIQUE NO PAINEL PARA ATIVAR O ÁUDIO";
                 statusLabel.style.backgroundColor = "#ff3333";
-                console.error(err);
+                console.error("Erro de captura de áudio:", err);
             }
         }
 
         function activarVUMeter() {
-            if (audioContext) audioContext.close();
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            sourceNode = audioContext.createMediaStreamSource(localStream);
-            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
-            
-            analyser.smoothingTimeConstant = 0.15;
-            analyser.fftSize = 512;
-
-            sourceNode.connect(analyser);
-            analyser.connect(javascriptNode);
-            javascriptNode.connect(audioContext.destination);
-
-            javascriptNode.onaudioprocess = () => {
-                const array = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(array);
-                let maxVolume = 0;
-                for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
+            try {
+                if (audioContext) audioContext.close();
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                sourceNode = audioContext.createMediaStreamSource(localStream);
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
                 
-                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.3) / 255) * 20));
+                analyser.smoothingTimeConstant = 0.15;
+                analyser.fftSize = 512;
 
-                leds.forEach((led, index) => {
-                    const ledLevel = index + 1;
-                    led.className = 'led';
-                    if (ledLevel <= numLedsAcesos && maxVolume > 10) {
-                        if (ledLevel <= 13) led.classList.add('green-on');
-                        else if (ledLevel <= 17) led.classList.add('yellow-on');
-                        else led.classList.add('red-on');
-                    }
-                });
-            };
+                sourceNode.connect(analyser);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination);
+
+                javascriptNode.onaudioprocess = () => {
+                    const array = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(array);
+                    let maxVolume = 0;
+                    for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
+                    
+                    const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.3) / 255) * 20));
+
+                    leds.forEach((led, index) => {
+                        const ledLevel = index + 1;
+                        led.className = 'led';
+                        if (ledLevel <= numLedsAcesos && maxVolume > 10) {
+                            if (ledLevel <= 13) led.classList.add('green-on');
+                            else if (ledLevel <= 17) led.classList.add('yellow-on');
+                            else led.classList.add('red-on');
+                        }
+                    });
+                };
+            } catch (e) {
+                console.error("Erro no VU-Meter:", e);
+            }
         }
 
-        // Injeta a biblioteca de rede de forma dinâmica apenas quando necessário
-        function carregarScriptEConectar(sala) {
-            if (typeof ScaleDrone !== 'undefined') {
-                inicializarDrone(sala);
-                return;
-            }
+        function carregarScriptDrone() {
+            if (typeof ScaleDrone !== 'undefined') return;
             const script = document.createElement('script');
             script.src = "https://cdn.scaledrone.com/scaledrone.min.js";
-            script.onload = () => inicializarDrone(sala);
             document.head.appendChild(script);
         }
 
         function conectarSala() {
+            // Se o áudio falhou anteriormente, tenta recuperá-lo no clique do botão
+            if (!localStream || localStream.getTracks().length === 0) {
+                iniciarSistema().then(() => executarConexao());
+            } else {
+                executarConexao();
+            }
+        }
+
+        function executarConexao() {
             const sala = roomInput.value.trim();
             if (!sala) return alert("Defina o nome da sala!");
-            if (SCALEDRONE_CHANNEL_ID === 'SUA_CHAVE_AQUI') return alert("Insira seu Channel ID na linha 54!");
+            if (SCALEDRONE_CHANNEL_ID === 'yRQhSB7U1UbP5z81Lbo5PST4Hu1FQcwC') return alert("Insira seu Channel ID na linha 53!");
 
             statusLabel.innerText = "CONECTANDO AO SERVIDOR...";
             statusLabel.style.backgroundColor = "#f59e0b";
-            
-            carregarScriptEConectar(sala);
-        }
+            statusLabel.style.color = "#fff";
 
-        function inicializarDrone(sala) {
+            if (typeof ScaleDrone === 'undefined') {
+                setTimeout(executarConexao, 1000);
+                return;
+            }
+
             drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
             
             drone.on('open', error => {
@@ -229,24 +248,39 @@
                 statusLabel.style.color = "#000";
             };
 
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            if (localStream) {
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            }
         }
 
         function enviarMensagemSinal(message) {
-            drone.publish({
-                room: `observable-${roomInput.value.trim()}`,
-                message
-            });
+            if (drone) {
+                drone.publish({
+                    room: `observable-${roomInput.value.trim()}`,
+                    message
+                });
+            }
         }
 
         async function trocarMicrofone() {
             const inputId = audioInputSelect.value;
-            if (localStream) localStream.getTracks().forEach(track => track.stop());
-            localStream = await navigator.mediaDevices.getUserMedia({
-                audio: { deviceId: inputId ? { exact: inputId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-            });
-            ativarVUMeter();
+            try {
+                if (localStream) localStream.getTracks().forEach(track => track.stop());
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { deviceId: inputId ? { exact: inputId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                });
+                ativarVUMeter();
+            } catch (e) {
+                console.error(e);
+            }
         }
+
+        // Adiciona um gatilho de clique na tela para forçar a ativação caso o navegador bloqueie a inicialização automática
+        window.addEventListener('click', () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        });
 
         window.onload = iniciarSistema;
     </script>
