@@ -3,34 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Reportagem UP</title>
+    <title>Codec IP Matrix - Linha Direta</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; }
-        .codec-panel { max-width: 500px; margin: 15px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 20px; }
+        .codec-panel { max-width: 500px; margin: 20px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; }
         h1 { font-size: 20px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
-        .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 10px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 15px; text-align: center; width: 100%; text-transform: uppercase; letter-spacing: 0.5px; }
-        .vu-modulation-wrapper { background-color: #0d1017; padding: 12px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 15px; }
-        .vu-led-container { display: flex; justify-content: space-between; gap: 2px; height: 22px; background-color: #05070a; padding: 3px; border-radius: 4px; }
+        .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; text-transform: uppercase; }
+        .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
+        .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 24px; background-color: #05070a; padding: 4px; border-radius: 4px; }
         .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 1px; }
-        .led.green-on { background-color: #00ff66; box-shadow: 0 0 6px #00ff66; }
-        .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 6px #ffcc00; }
-        .led.red-on { background-color: #ff3333; box-shadow: 0 0 6px #ff3333; }
-        .config-section { background-color: #0d1017; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #22293a; text-align: center; }
-        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 16px; outline: none; margin-top: 5px; text-align: center; font-weight: bold; letter-spacing: 1px; }
-        .btn-action { width: 100%; padding: 15px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 10px; transition: 0.2s; }
-        .btn-blue { background-color: #3b82f6; color: #fff; }
-        .btn-green { background-color: #00ff66; color: #000; display: none; }
+        .led.green-on { background-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
+        .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
+        .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
+        .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; text-align: center; }
+        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 16px; outline: none; margin-top: 5px; text-align: center; font-weight: bold; }
+        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        .btn-green { background-color: #00ff66; color: #000; }
     </style>
-    <script src="https://unpkg.com/piesocket-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
 </head>
 <body>
 
     <div class="codec-panel">
         <h1>🎙️ MATRIX LIVE CODEC</h1>
-        <div class="status-badge" id="statusLabel">1º PASSO: ATIVAR AUDIO</div>
-
-        <button class="btn-action btn-blue" id="btnAtivar" onclick="forcarMicrofoneEVU()">🎤 LIBERAR MICROFONE LOCAL</button>
+        <div class="status-badge" id="statusLabel">MICROFONE INICIALIZANDO...</div>
 
         <div class="vu-modulation-wrapper">
             <div class="vu-led-container">
@@ -42,43 +39,38 @@
         </div>
 
         <div class="config-section">
-            <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Nome do Canal (Combine com o Estúdio):</label>
-            <input type="text" id="roomInput" value="link-reportagem">
+            <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Nome do Canal de Transmissão:</label>
+            <input type="text" id="roomInput" value="reportagem-matrix-2026">
         </div>
 
-        <button class="btn-action btn-green" id="btnConectar" onclick="conectarAoEstudio()">⚡ ENTRAR NO AR</button>
+        <button class="btn-action btn-green" id="btnConectar" onclick="conectarCanal()">⚡ ENTRAR NO AR AGORA</button>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script>
-        let localStream, pc, pieSocket, channel, audioContext, analyser;
+        let localStream, pc, mqttClient, audioContext, analyser;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
-        const btnAtivar = document.getElementById('btnAtivar');
-        const btnConectar = document.getElementById('btnConectar');
         const roomInput = document.getElementById('roomInput');
 
         const iceConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+                { urls: 'stun:stun1.l.google.com:19302' }
             ]
         };
 
-        async function forcarMicrofoneEVU() {
+        // Inicia o Microfone e o VU no instante que entra na página de forma automática
+        async function autoIniciarAudio() {
             try {
-                // Configurações focadas em broadcasting de voz limpa e sem travas de ganho do celular
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
 
-                statusLabel.innerText = "MICROFONE PRONTO";
+                statusLabel.innerText = "PRONTO PARA CONECTAR";
                 statusLabel.style.backgroundColor = "#3b82f6";
-                btnAtivar.style.display = "none";
-                btnConectar.style.display = "block"; // Libera o botão de entrar no ar imediatamente
 
-                // Ativação do VU pós-clique físico para burlar travas do Chrome Mobile
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
                 const source = audioContext.createMediaStreamSource(localStream);
@@ -105,62 +97,67 @@
                     });
                 }
                 rodarVU();
-
             } catch (err) {
                 statusLabel.innerText = "ERRO: PERMISSÃO NEGADA";
                 statusLabel.style.backgroundColor = "#ff3333";
-                alert("Por favor, clique no ícone de cadeado do navegador e mude o Microfone para PERMITIR!");
             }
         }
+        window.onload = autoIniciarAudio;
 
-        function conectarAoEstudio() {
+        function conectarCanal() {
             const sala = roomInput.value.trim();
-            statusLabel.innerText = "SINTONIZANDO CANAL...";
+            statusLabel.innerText = "SINALIZANDO REDE DIRECT...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            // Inicializa a sinalização automática do PieSocket (Chave pública de teste estável)
-            pieSocket = new PieSocket({
-                clusterId: "demo",
-                apiKey: "oCdC2zZGjpxGVm3WM716GvN2SMrw7asA7qfSsmYI" 
-            });
+            // Servidor global e gratuito de mensagens instantâneas (Sem travas ou limites de IP)
+            const clientId = "client_" + Math.random().toString(16).substr(2, 8);
+            mqttClient = new Paho.MQTT.Client("broker.hivemq.com", Number(8000), "/mqtt", clientId);
 
-            channel = pieSocket.subscribe(sala);
+            mqttClient.onConnectionLost = () => {
+                statusLabel.innerText = "LINK CAIU, RECONECTANDO...";
+                statusLabel.style.backgroundColor = "#ff3333";
+            };
 
-            channel.on("open", () => {
-                statusLabel.innerText = "LINK CONECTADO / ENTRANDO NO AR...";
-                statusLabel.style.backgroundColor = "#10b981";
-                configurarConexaoWebRTC(true);
-            });
+            mqttClient.onMessageArrived = async (msg) => {
+                const message = JSON.parse(msg.payloadString);
+                if (message.sender === clientId) return; // ignora a própria mensagem
 
-            channel.on("message", async (msg) => {
-                const message = JSON.parse(msg.data);
-                
                 if (message.sdp) {
                     await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
                     if (pc.remoteDescription.type === 'offer') {
                         const answer = await pc.createAnswer();
                         await pc.setLocalDescription(answer);
-                        channel.send(JSON.stringify({ sdp: pc.localDescription }));
+                        enviarSinal({ sdp: pc.localDescription });
                     }
                 } else if (message.candidate) {
                     try {
                         await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
                     } catch (e) {}
                 }
+            };
+
+            mqttClient.connect({
+                onSuccess: () => {
+                    mqttClient.subscribe("matrix/codec/" + sala);
+                    statusLabel.innerText = "AGUARDANDO RETORNO DO ESTÚDIO...";
+                    statusLabel.style.backgroundColor = "#10b981";
+                    configurarWebRTC(true);
+                },
+                useSSL: true
             });
         }
 
-        function configurarConexaoWebRTC(criarOferta) {
+        function configurarWebRTC(criarOferta) {
             if (pc) pc.close();
             pc = new RTCPeerConnection(iceConfig);
 
             pc.onicecandidate = event => {
-                if (event.candidate) channel.send(JSON.stringify({ candidate: event.candidate }));
+                if (event.candidate) enviarSinal({ candidate: event.candidate });
             };
 
             pc.ontrack = event => {
                 document.getElementById('remoteAudio').srcObject = event.streams[0];
-                statusLabel.innerText = "🔴 NO AR (LINK DIRETO ATIVO)";
+                statusLabel.innerText = "🔴 NO AR / LINK DUPLO ATIVO";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
             };
@@ -171,9 +168,17 @@
                 pc.onnegotiationneeded = async () => {
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
-                    channel.send(JSON.stringify({ sdp: pc.localDescription }));
+                    enviarSinal({ sdp: pc.localDescription });
                 };
             }
+        }
+
+        function enviarSinal(data) {
+            const sala = roomInput.value.trim();
+            data.sender = mqttClient.clientId;
+            const message = new Paho.MQTT.Message(JSON.stringify(data));
+            message.destinationName = "matrix/codec/" + sala;
+            mqttClient.send(message);
         }
     </script>
 </body>
