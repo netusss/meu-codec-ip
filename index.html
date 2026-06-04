@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Linha Direta</title>
+    <title>Codec IP Matrix - Sistema P2P Direto</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; }
@@ -17,17 +17,16 @@
         .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
         .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; text-align: center; }
-        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 16px; outline: none; margin-top: 5px; text-align: center; font-weight: bold; }
+        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #00f2fe; padding: 12px; border-radius: 6px; font-size: 22px; outline: none; margin-top: 5px; text-align: center; font-weight: bold; font-family: monospace; letter-spacing: 3px; }
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
         .btn-green { background-color: #00ff66; color: #000; }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
 </head>
 <body>
 
     <div class="codec-panel">
         <h1>🎙️ MATRIX LIVE CODEC</h1>
-        <div class="status-badge" id="statusLabel">MICROFONE INICIALIZANDO...</div>
+        <div class="status-badge" id="statusLabel">CONFIGURANDO AUDIO...</div>
 
         <div class="vu-modulation-wrapper">
             <div class="vu-led-container">
@@ -39,36 +38,29 @@
         </div>
 
         <div class="config-section">
-            <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Nome do Canal de Transmissão:</label>
-            <input type="text" id="roomInput" value="reportagem-matrix-2026">
+            <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">CÓDIGO DO CANAL (DÍGITOS):</label>
+            <input type="number" id="canalInput" pattern="[0-9]*" inputmode="numeric" value="105">
         </div>
 
-        <button class="btn-action btn-green" id="btnConectar" onclick="conectarCanal()">⚡ ENTRAR NO AR AGORA</button>
+        <button class="btn-action btn-green" id="btnConectar" onclick="conectarCanalEstudio()">⚡ ENTRAR NO AR AGORA</button>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script>
-        let localStream, pc, mqttClient, audioContext, analyser;
+        let localStream, pc, audioContext, analyser;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
-        const roomInput = document.getElementById('roomInput');
+        const canalInput = document.getElementById('canalInput');
 
-        const iceConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
-
-        // Inicia o Microfone e o VU no instante que entra na página de forma automática
-        async function autoIniciarAudio() {
+        // Inicialização automática do microfone e VU
+        async function iniciarSistema() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
 
-                statusLabel.innerText = "PRONTO PARA CONECTAR";
+                statusLabel.innerText = "PRONTO PARA TRANSMISSÃO";
                 statusLabel.style.backgroundColor = "#3b82f6";
 
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -102,83 +94,78 @@
                 statusLabel.style.backgroundColor = "#ff3333";
             }
         }
-        window.onload = autoIniciarAudio;
+        window.onload = iniciarSistema;
 
-        function conectarCanal() {
-            const sala = roomInput.value.trim();
-            statusLabel.innerText = "SINALIZANDO REDE DIRECT...";
+        async function conectarCanalEstudio() {
+            const numCanal = canalInput.value.trim();
+            if(!numCanal) return alert("Digite um número de canal!");
+
+            statusLabel.innerText = "CONECTANDO VIA RELAY STACK...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            // Servidor global e gratuito de mensagens instantâneas (Sem travas ou limites de IP)
-            const clientId = "client_" + Math.random().toString(16).substr(2, 8);
-            mqttClient = new Paho.MQTT.Client("broker.hivemq.com", Number(8000), "/mqtt", clientId);
+            // Nova arquitetura: Forçamos a criação de uma conexão ponto a ponto WebRTC em mesh fechada
+            // Usando servidores de sinalização síncronos e abertos da comunidade em canais estritamente numéricos
+            try {
+                if (pc) pc.close();
+                pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+                    ]
+                });
 
-            mqttClient.onConnectionLost = () => {
-                statusLabel.innerText = "LINK CAIU, RECONECTANDO...";
-                statusLabel.style.backgroundColor = "#ff3333";
-            };
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-            mqttClient.onMessageArrived = async (msg) => {
-                const message = JSON.parse(msg.payloadString);
-                if (message.sender === clientId) return; // ignora a própria mensagem
-
-                if (message.sdp) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                    if (pc.remoteDescription.type === 'offer') {
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        enviarSinal({ sdp: pc.localDescription });
-                    }
-                } else if (message.candidate) {
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                    } catch (e) {}
-                }
-            };
-
-            mqttClient.connect({
-                onSuccess: () => {
-                    mqttClient.subscribe("matrix/codec/" + sala);
-                    statusLabel.innerText = "AGUARDANDO RETORNO DO ESTÚDIO...";
-                    statusLabel.style.backgroundColor = "#10b981";
-                    configurarWebRTC(true);
-                },
-                useSSL: true
-            });
-        }
-
-        function configurarWebRTC(criarOferta) {
-            if (pc) pc.close();
-            pc = new RTCPeerConnection(iceConfig);
-
-            pc.onicecandidate = event => {
-                if (event.candidate) enviarSinal({ candidate: event.candidate });
-            };
-
-            pc.ontrack = event => {
-                document.getElementById('remoteAudio').srcObject = event.streams[0];
-                statusLabel.innerText = "🔴 NO AR / LINK DUPLO ATIVO";
-                statusLabel.style.backgroundColor = "#00ff66";
-                statusLabel.style.color = "#000";
-            };
-
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-            if (criarOferta) {
-                pc.onnegotiationneeded = async () => {
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
-                    enviarSinal({ sdp: pc.localDescription });
+                pc.ontrack = event => {
+                    document.getElementById('remoteAudio').srcObject = event.streams[0];
+                    statusLabel.innerText = "🔴 LINK ATIVO / NO AR";
+                    statusLabel.style.backgroundColor = "#00ff66";
+                    statusLabel.style.color = "#000";
                 };
-            }
-        }
 
-        function enviarSinal(data) {
-            const sala = roomInput.value.trim();
-            data.sender = mqttClient.clientId;
-            const message = new Paho.MQTT.Message(JSON.stringify(data));
-            message.destinationName = "matrix/codec/" + sala;
-            mqttClient.send(message);
+                // Criação do canal síncrono via link indireto de rede aberta
+                const linkSignaling = `https://matrix-signaling-relayer.deno.dev/${numCanal}`;
+                
+                pc.onicecandidate = async event => {
+                    if (!event.candidate && pc.localDescription) {
+                        // Envia os dados de rede empacotados de uma só vez
+                        await fetch(linkSignaling, {
+                            method: 'POST',
+                            body: JSON.stringify({ sdp: pc.localDescription })
+                        }).catch(()=>{});
+                    }
+                };
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                // Polling ultrarrápido temporizado para interceptar a outra ponta sem usar WebSocket travado
+                const checarConexao = setInterval(async () => {
+                    const res = await fetch(linkSignaling).catch(()=>{});
+                    if (res && res.ok) {
+                        const dados = await res.json().catch(()=>{});
+                        if (dados && dados.sdp && !pc.remoteDescription) {
+                            clearInterval(checarConexao);
+                            await pc.setRemoteDescription(new RTCSessionDescription(dados.sdp));
+                            if (pc.remoteDescription.type === 'offer') {
+                                const answer = await pc.createAnswer();
+                                await pc.setLocalDescription(answer);
+                                await fetch(linkSignaling, {
+                                    method: 'POST',
+                                    body: JSON.stringify({ sdp: pc.localDescription })
+                                }).catch(()=>{});
+                            }
+                            statusLabel.innerText = "🔴 LINK ATIVO / NO AR";
+                            statusLabel.style.backgroundColor = "#00ff66";
+                            statusLabel.style.color = "#000";
+                        }
+                    }
+                }, 1000);
+
+            } catch(e) {
+                statusLabel.innerText = "ERRO DE CONEXÃO";
+                statusLabel.style.backgroundColor = "#ff3333";
+            }
         }
     </script>
 </body>
