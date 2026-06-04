@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Estabilidade Total</title>
+    <title>Codec IP Matrix - Estabilidade</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -31,7 +31,7 @@
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">INICIANDO MICROFONE...</div>
+        <div class="status-badge" id="statusLabel">SOLICITANDO ÁUDIO LOCAL...</div>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
@@ -69,7 +69,7 @@
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        // INSIRA SEU ID DO SCALEDRONE ENTRE AS ASPAS ABAIXO:
+        // COLOQUE SEU ID DO SCALEDRONE ENTRE AS ASPAS:
         const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH';
 
         let localStream, pc, audioContext, analyser, javascriptNode, sourceNode, drone, room;
@@ -86,8 +86,8 @@
             ]
         };
 
-        // 1. INICIALIZAÇÃO IMEDIATA E ISOLADA DO ÁUDIO LOCAL
-        async function iniciarAudioLocal() {
+        // Roda IMEDIATAMENTE ao abrir a página, sem depender de scripts externos
+        async function iniciarSistema() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
@@ -107,13 +107,10 @@
                 statusLabel.innerText = "PRONTO";
                 statusLabel.style.backgroundColor = "#3b82f6";
                 ativarVUMeter();
-                
-                // Só carrega a biblioteca de rede DEPOIS que o áudio local já estiver funcionando 100%
-                carregarScriptDrone();
             } catch (err) {
                 statusLabel.innerText = "ERRO DE AUDIO";
                 statusLabel.style.backgroundColor = "#ff3333";
-                console.error("Erro ao acessar mic:", err);
+                console.error(err);
             }
         }
 
@@ -124,7 +121,7 @@
             sourceNode = audioContext.createMediaStreamSource(localStream);
             javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
             
-            analyser.smoothingTimeConstant = 0.12;
+            analyser.smoothingTimeConstant = 0.15;
             analyser.fftSize = 512;
 
             sourceNode.connect(analyser);
@@ -137,7 +134,7 @@
                 let maxVolume = 0;
                 for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
                 
-                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.4) / 255) * 20));
+                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.3) / 255) * 20));
 
                 leds.forEach((led, index) => {
                     const ledLevel = index + 1;
@@ -151,27 +148,30 @@
             };
         }
 
-        function carregarScriptDrone() {
+        // Injeta a biblioteca de rede de forma dinâmica apenas quando necessário
+        function carregarScriptEConectar(sala) {
+            if (typeof ScaleDrone !== 'undefined') {
+                inicializarDrone(sala);
+                return;
+            }
             const script = document.createElement('script');
             script.src = "https://cdn.scaledrone.com/scaledrone.min.js";
+            script.onload = () => inicializarDrone(sala);
             document.head.appendChild(script);
         }
 
-        // 2. PARTE DE REDE (SÓ ENTRA EM AÇÃO QUANDO CLICA NO BOTÃO)
         function conectarSala() {
             const sala = roomInput.value.trim();
             if (!sala) return alert("Defina o nome da sala!");
-            if (SCALEDRONE_CHANNEL_ID === 'SUA_CHAVE_AQUI' || !SCALEDRONE_CHANNEL_ID) {
-                return alert("Falta colar seu ID do ScaleDrone na linha 57 do código!");
-            }
+            if (SCALEDRONE_CHANNEL_ID === 'SUA_CHAVE_AQUI') return alert("Insira seu Channel ID na linha 54!");
 
             statusLabel.innerText = "CONECTANDO AO SERVIDOR...";
             statusLabel.style.backgroundColor = "#f59e0b";
+            
+            carregarScriptEConectar(sala);
+        }
 
-            if (typeof ScaleDrone === 'undefined') {
-                return alert("O servidor de sinalização está carregando, espere 3 segundos e clique de novo.");
-            }
-
+        function inicializarDrone(sala) {
             drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
             
             drone.on('open', error => {
@@ -248,8 +248,7 @@
             ativarVUMeter();
         }
 
-        // Executa o áudio local IMEDIATAMENTE
-        window.onload = iniciarAudioLocal;
+        window.onload = iniciarSistema;
     </script>
 </body>
 </html>
