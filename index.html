@@ -3,163 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Conexão Forçada</title>
+    <title>Codec IP Matrix - Ultra Estável</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
-        .codec-panel { max-width: 700px; margin: 30px auto; background-color: #161a26; border-radius: 12px; border: 1px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.15); padding: 30px; }
-        h1 { font-size: 22px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1.5px; text-transform: uppercase; }
-        .status-badge { display: inline-block; background-color: #22293a; color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: bold; margin: 10px auto 25px auto; display: table; letter-spacing: 1px; text-transform: uppercase; }
-        .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; }
-        .config-section h3 { font-size: 13px; color: #00f2fe; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
-        select, input[type="text"] { width: 100%; background-color: #161a26; border: 1px solid #22293a; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; }
-        .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
-        .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 25px; background-color: #05070a; padding: 4px; border-radius: 4px; border: 1px solid #111; }
-        .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; }
-        .led.green-on { background-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
-        .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
-        .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
-        .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; padding: 0 4px; }
-        .btn-action { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
-        .btn-activate-mic { background-color: #3b82f6; color: #fff; margin-bottom: 20px; }
-        .btn-connect-peer { background-color: #00ff66; color: #000; }
-        .btn-disconnect { background-color: #22293a; color: #94a3b8; }
+        .codec-panel { max-width: 600px; margin: 50px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 30px; text-align: center; }
+        h1 { font-size: 24px; color: #fff; margin-bottom: 20px; letter-spacing: 1.5px; }
+        .status-badge { display: inline-block; background-color: #f59e0b; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-bottom: 25px; width: 100%; text-transform: uppercase; }
+        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 15px; transition: 0.2s; }
+        .btn-blue { background-color: #3b82f6; color: #fff; }
+        .btn-green { background-color: #00ff66; color: #000; display: none; } /* Só aparece após liberar mic */
+        .btn-reset { background-color: #22293a; color: #94a3b8; font-size: 12px; padding: 8px; margin-top: 20px; }
+        .room-box { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
+        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; text-align: center; font-size: 16px; font-weight: bold; margin-top: 5px; outline: none; }
     </style>
     <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
 </head>
 <body>
 
     <div class="codec-panel">
-        <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">AGUARDANDO INICIALIZAÇÃO</div>
+        <h1>CODEC IP MATRIX</h1>
+        
+        <div class="status-badge" id="statusLabel">1º PASSO: ATIVAR ÁUDIO</div>
 
-        <button class="btn-action btn-activate-mic" id="btnAtivar" onclick="inicializarAudioGarantido()">🎤 1º CLIQUE: LIGAR MICROFONE</button>
+        <button class="btn-action btn-blue" id="btnAtivar" onclick="ligarMicrofone()">🎤 CLIQUE PARA LIGAR MICROFONE</button>
 
-        <div class="vu-modulation-wrapper">
-            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">MODULAÇÃO LOCAL:</label>
-            <div class="vu-led-container">
-                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
-                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
-                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
-                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
-            </div>
-            <div class="db-labels">
-                <span>-40 dB</span><span>-20 dB</span><span>-10 dB</span><span>-3 dB</span><span style="color: #ff3333;">0 dB (CLIP)</span>
-            </div>
+        <div class="room-box">
+            <label style="font-size: 12px; color: #94a3b8;">NOME DA SALA (IGUAL NOS DOIS LADOS):</label>
+            <input type="text" id="roomInput" value="sala-conexao-direta">
         </div>
 
-        <div class="config-section">
-            <h3>Conexão por Link de Alta Rota</h3>
-            <div class="form-group">
-                <label>Canal Privado de Transmissão:</label>
-                <input type="text" id="roomInput" value="canal-matrix-premium">
-            </div>
-            <button class="btn-action btn-connect-peer" onclick="conectarSala()">⚡ 2º CLIQUE: ENTRAR E TRANSMITIR</button>
-        </div>
+        <button class="btn-action btn-green" id="btnConectar" onclick="conectarCanal()">⚡ CONECTAR TRANSMISSÃO</button>
 
-        <div class="config-section">
-            <h3>Hardware de Áudio</h3>
-            <div class="form-group">
-                <select id="audioInput" onchange="trocarMicrofone()"></select>
-            </div>
-        </div>
-
-        <button class="btn-action btn-disconnect" onclick="location.reload()">Resetar Sistema</button>
+        <button class="btn-action btn-reset" onclick="location.reload()">Resetar Sistema</button>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script>
-        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH'; // ID do seu Canal
+        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH'; // Seu ID configurado
 
-        let localStream, pc, audioContext, analyser, drone, room;
-        let membros NaSala = [];
-        const leds = document.querySelectorAll('.led');
-        const statusLabel = document.getElementById('statusLabel');
-        const audioInputSelect = document.getElementById('audioInput');
-        const remoteAudio = document.getElementById('remoteAudio');
-        const roomInput = document.getElementById('roomInput');
-        const btnAtivar = document.getElementById('btnAtivar');
+        let localStream, pc, drone, room;
 
-        // Servidores STUN expandidos para evitar bloqueios de operadoras locais (Claro, Vivo, Starlink, etc)
         const iceConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478?transport=udp' },
-                { urls: 'stun:stun.xirsys.com' }
+                { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
             ]
         };
 
-        async function inicializarAudioGarantido() {
+        // Ativa o microfone de forma limpa e sem scripts visuais pesados
+        async function ligarMicrofone() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
 
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                audioInputSelect.innerHTML = '';
-                devices.forEach(device => {
-                    if (device.kind === 'audioinput') {
-                        const option = document.createElement('option');
-                        option.value = device.deviceId;
-                        option.text = device.label || `Microfone ${audioInputSelect.length + 1}`;
-                        audioInputSelect.appendChild(option);
-                    }
-                });
-
-                statusLabel.innerText = "MICROFONE PRONTO";
-                statusLabel.style.backgroundColor = "#3b82f6";
-                btnAtivar.style.display = "none";
-
-                renderizarVUMeter();
+                document.getElementById('statusLabel').innerText = "MICROFONE PRONTO / LIBERADO";
+                document.getElementById('statusLabel').style.backgroundColor = "#3b82f6";
+                
+                // Esconde o botão azul e mostra o verde de conectar
+                document.getElementById('btnAtivar').style.display = "none";
+                document.getElementById('btnConectar').style.display = "block";
             } catch (err) {
-                statusLabel.innerText = "ERRO MICROFONE";
-                statusLabel.style.backgroundColor = "#ff3333";
+                document.getElementById('statusLabel').innerText = "ERRO: PERMISSÃO NEGADA";
+                document.getElementById('statusLabel').style.backgroundColor = "#ff3333";
+                alert("Clique no cadeado ao lado do link do site e mude o Microfone para PERMITIR.");
             }
         }
 
-        function renderizarVUMeter() {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            const source = audioContext.createMediaStreamSource(localStream);
-            
-            analyser.fftSize = 64;
-            source.connect(analyser);
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        function conectarCanal() {
+            const sala = document.getElementById('roomInput').value.trim();
+            document.getElementById('statusLabel').innerText = "CONECTANDO LINK INTERNET...";
+            document.getElementById('statusLabel').style.backgroundColor = "#f59e0b";
 
-            function atualizar() {
-                if (!localStream) return;
-                requestAnimationFrame(atualizar);
-                analyser.getByteFrequencyData(dataArray);
-                let somatorio = 0;
-                for (let i = 0; i < dataArray.length; i++) { somatorio += dataArray[i]; }
-                let mediaVolume = somatorio / dataArray.length;
-                let ledsAcesos = Math.min(20, Math.round((mediaVolume / 140) * 20));
-
-                leds.forEach((led, index) => {
-                    led.className = 'led';
-                    if (index < ledsAcesos && mediaVolume > 5) {
-                        if (index <= 12) led.classList.add('green-on');
-                        else if (index <= 16) led.classList.add('yellow-on');
-                        else led.classList.add('red-on');
-                    }
-                });
-            }
-            atualizar();
-        }
-
-        function conectarSala() {
-            const sala = roomInput.value.trim();
-            if (!localStream) return alert("Ative seu microfone no botão azul primeiro!");
-
-            statusLabel.innerText = "CONECTANDO AO SERVIDOR...";
-            statusLabel.style.backgroundColor = "#f59e0b";
-
-            // Usando salas observáveis do ScaleDrone de forma correta para escuta de presença
             drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
             
             drone.on('open', error => {
@@ -169,24 +87,20 @@
                 
                 room.on('open', error => {
                     if (error) return console.error(error);
-                    statusLabel.innerText = "SALA ONLINE / PROCURANDO PAR";
-                    statusLabel.style.backgroundColor = "#10b981";
+                    document.getElementById('statusLabel').innerText = "AGUARDANDO O OUTRO APARELHO...";
+                    document.getElementById('statusLabel').style.backgroundColor = "#10b981";
                 });
 
-                // Detecta quem está na sala para forçar a conexão mútua imediata
                 room.on('members', members => {
-                    membrosNaSala = members;
-                    // Se você for o segundo a entrar, cria a oferta automaticamente
-                    if (membrosNaSala.length > 1) {
-                        configurarWebRTC(true);
+                    if (members.length > 1) {
+                        inicializarWebRTC(true);
                     } else {
-                        configurarWebRTC(false);
+                        inicializarWebRTC(false);
                     }
                 });
 
-                room.on('member_join', member => {
-                    // Se outra pessoa entrar depois de você, renegocia para garantir o link
-                    configurarWebRTC(true);
+                room.on('member_join', () => {
+                    inicializarWebRTC(true);
                 });
 
                 room.on('data', (message, client) => {
@@ -197,7 +111,7 @@
                             if (pc.remoteDescription.type === 'offer') {
                                 pc.createAnswer().then(description => {
                                     pc.setLocalDescription(description, () => {
-                                        enviarMensagemSinal({ sdp: pc.localDescription });
+                                        enviarSinal({ sdp: pc.localDescription });
                                     }, console.error);
                                 });
                             }
@@ -209,20 +123,19 @@
             });
         }
 
-        function configurarWebRTC(deveCriarOferta) {
+        function inicializarWebRTC(deveCriarOferta) {
             if (pc) pc.close();
-            
             pc = new RTCPeerConnection(iceConfig);
 
             pc.onicecandidate = event => {
-                if (event.candidate) enviarMensagemSinal({ candidate: event.candidate });
+                if (event.candidate) enviarSinal({ candidate: event.candidate });
             };
 
             pc.ontrack = event => {
-                remoteAudio.srcObject = event.streams[0];
-                statusLabel.innerText = "CONEXÃO MATRIX ATIVA (NO AR)";
-                statusLabel.style.backgroundColor = "#00ff66";
-                statusLabel.style.color = "#000";
+                document.getElementById('remoteAudio').srcObject = event.streams[0];
+                document.getElementById('statusLabel').innerText = "🔴 NO AR / CONECTADO!";
+                document.getElementById('statusLabel').style.backgroundColor = "#00ff66";
+                document.getElementById('statusLabel').style.color = "#000";
             };
 
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -230,28 +143,17 @@
             if (deveCriarOferta) {
                 pc.createOffer().then(description => {
                     pc.setLocalDescription(description, () => {
-                        enviarMensagemSinal({ sdp: pc.localDescription });
+                        enviarSinal({ sdp: pc.localDescription });
                     }, console.error);
                 });
             }
         }
 
-        function enviarMensagemSinal(message) {
+        function enviarSinal(message) {
+            const sala = document.getElementById('roomInput').value.trim();
             if (drone && room) {
-                drone.publish({
-                    room: `observable-${roomInput.value.trim()}`,
-                    message: message
-                });
+                drone.publish({ room: `observable-${sala}`, message });
             }
-        }
-
-        async function trocarMicrofone() {
-            const inputId = audioInputSelect.value;
-            if (localStream) localStream.getTracks().forEach(track => track.stop());
-            localStream = await navigator.mediaDevices.getUserMedia({
-                audio: { deviceId: inputId ? { exact: inputId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-            });
-            renderizarVUMeter();
         }
     </script>
 </body>
