@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Estabilidade Máxima</title>
+    <title>Codec IP Matrix - Estabilidade de Áudio</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -25,16 +25,19 @@
         .btn-action { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
         .btn-connect-peer { background-color: #00ff66; color: #000; }
         .btn-disconnect { background-color: #ff3333; color: white; }
+        .btn-audio { background-color: #3b82f6; color: white; margin-bottom: 15px; display: none; }
     </style>
 </head>
 <body>
 
-    <div class="codec-panel">
+    <div class="codec-panel" onclick="forcarAtivacaoNavegador()">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">SOLICITANDO ÁUDIO...</div>
+        <div class="status-badge" id="statusLabel">AGUARDANDO ATIVAÇÃO...</div>
+
+        <button class="btn-action btn-audio" id="btnAtivarAudio" onclick="iniciarSistema()">🎤 Ativar Microfone Local</button>
 
         <div class="vu-modulation-wrapper">
-            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">SUA MODULAÇÃO LOCAL:</label>
+            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">MODULAÇÃO EM TEMPO REAL:</label>
             <div class="vu-led-container">
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
@@ -49,10 +52,10 @@
         <div class="config-section">
             <h3>1. Conexão por Sala Estável</h3>
             <div class="form-group">
-                <label>Nome da Sala (Digite igual nos dois aparelhos):</label>
+                <label>Nome da Sala (Digite o mesmo nome nos dois computadores):</label>
                 <input type="text" id="roomInput" placeholder="Ex: sala-principal" value="sala-principal">
             </div>
-            <button class="btn-action btn-connect-peer" id="btnConectar" onclick="conectarSala()">⚡ Conectar e Transmitir</button>
+            <button class="btn-action btn-connect-peer" id="btnConectar" onclick="conectarSala()">⚡ Entrar e Conectar na Sala</button>
         </div>
 
         <div class="config-section">
@@ -63,14 +66,14 @@
             </div>
         </div>
 
-        <button class="btn-action btn-disconnect" onclick="location.reload()">Cortar / Resetar</button>
+        <button class="btn-action btn-disconnect" onclick="location.reload()">Cortar e Resetar Tudo</button>
     </div>
 
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
         // COLOQUE SEU ID DO SCALEDRONE ENTRE AS ASPAS:
-        const SCALEDRONE_CHANNEL_ID = 'SUA_CHAVE_AQUI';
+        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH';
 
         let localStream, pc, audioContext, analyser, javascriptNode, sourceNode, drone, room;
         const leds = document.querySelectorAll('.led');
@@ -78,6 +81,7 @@
         const audioInputSelect = document.getElementById('audioInput');
         const remoteAudio = document.getElementById('remoteAudio');
         const roomInput = document.getElementById('roomInput');
+        const btnAtivarAudio = document.getElementById('btnAtivarAudio');
 
         const iceConfig = {
             iceServers: [
@@ -86,7 +90,6 @@
             ]
         };
 
-        // Inicialização nativa do áudio com tratamento de erro resiliente
         async function iniciarSistema() {
             try {
                 if (localStream) {
@@ -99,66 +102,61 @@
 
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 audioInputSelect.innerHTML = '';
-                let hasMicrophone = false;
-
                 devices.forEach(device => {
                     if (device.kind === 'audioinput') {
                         const option = document.createElement('option');
                         option.value = device.deviceId;
                         option.text = device.label || `Microfone ${audioInputSelect.length + 1}`;
                         audioInputSelect.appendChild(option);
-                        hasMicrophone = true;
                     }
                 });
 
                 statusLabel.innerText = "PRONTO";
                 statusLabel.style.backgroundColor = "#3b82f6";
-                statusLabel.style.color = "#fff";
+                btnAtivarAudio.style.display = "none"; 
+                
                 ativarVUMeter();
                 carregarScriptDrone();
             } catch (err) {
-                statusLabel.innerText = "ERRO: CLIQUE NO PAINEL PARA ATIVAR O ÁUDIO";
+                statusLabel.innerText = "BLOQUEADO PELO NAVEGADOR";
                 statusLabel.style.backgroundColor = "#ff3333";
-                console.error("Erro de captura de áudio:", err);
+                btnAtivarAudio.style.display = "block"; // Mostra o botão azul para o usuário clicar
+                console.error(err);
             }
         }
 
         function activarVUMeter() {
-            try {
-                if (audioContext) audioContext.close();
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                sourceNode = audioContext.createMediaStreamSource(localStream);
-                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+            if (audioContext) audioContext.close();
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            sourceNode = audioContext.createMediaStreamSource(localStream);
+            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+            
+            analyser.smoothingTimeConstant = 0.15;
+            analyser.fftSize = 512;
+
+            sourceNode.connect(analyser);
+            analyser.connect(javascriptNode);
+            javascriptNode.connect(audioContext.destination);
+
+            javascriptNode.onaudioprocess = () => {
+                const array = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(array);
+                let maxVolume = 0;
+                for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
                 
-                analyser.smoothingTimeConstant = 0.15;
-                analyser.fftSize = 512;
+                const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.3) / 255) * 20));
 
-                sourceNode.connect(analyser);
-                analyser.connect(javascriptNode);
-                javascriptNode.connect(audioContext.destination);
-
-                javascriptNode.onaudioprocess = () => {
-                    const array = new Uint8Array(analyser.frequencyBinCount);
-                    analyser.getByteFrequencyData(array);
-                    let maxVolume = 0;
-                    for (let i = 0; i < array.length; i++) { if (array[i] > maxVolume) maxVolume = array[i]; }
-                    
-                    const numLedsAcesos = Math.min(20, Math.round(((maxVolume * 1.3) / 255) * 20));
-
-                    leds.forEach((led, index) => {
-                        const ledLevel = index + 1;
-                        led.className = 'led';
-                        if (ledLevel <= numLedsAcesos && maxVolume > 10) {
-                            if (ledLevel <= 13) led.classList.add('green-on');
-                            else if (ledLevel <= 17) led.classList.add('yellow-on');
-                            else led.classList.add('red-on');
-                        }
-                    });
-                };
-            } catch (e) {
-                console.error("Erro no VU-Meter:", e);
-            }
+                leds.forEach((led, index) => {
+                    const ledLevel = index + 1;
+                    led.className = 'led';
+                    if (ledLevel <= numLedsAcesos && maxVolume > 10) {
+                        if (ledLevel <= 13) led.classList.add('green-on');
+                        else if (ledLevel <= 17) led.classList.add('yellow-on');
+                        else led.classList.add('red-on');
+                    }
+                });
+            };
         }
 
         function carregarScriptDrone() {
@@ -168,26 +166,27 @@
             document.head.appendChild(script);
         }
 
-        function conectarSala() {
-            // Se o áudio falhou anteriormente, tenta recuperá-lo no clique do botão
-            if (!localStream || localStream.getTracks().length === 0) {
-                iniciarSistema().then(() => executarConexao());
-            } else {
-                executarConexao();
+        function forcarAtivacaoNavegador() {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
             }
         }
 
-        function executarConexao() {
+        function conectarSala() {
             const sala = roomInput.value.trim();
             if (!sala) return alert("Defina o nome da sala!");
-            if (SCALEDRONE_CHANNEL_ID === 'yRQhSB7U1UbP5z81Lbo5PST4Hu1FQcwC') return alert("Insira seu Channel ID na linha 53!");
+            if (SCALEDRONE_CHANNEL_ID === 'SUA_CHAVE_AQUI') return alert("Insira seu Channel ID na linha 56!");
+
+            if (!localStream) {
+                alert("Por favor, ative o microfone clicando no botão azul primeiro.");
+                return;
+            }
 
             statusLabel.innerText = "CONECTANDO AO SERVIDOR...";
             statusLabel.style.backgroundColor = "#f59e0b";
-            statusLabel.style.color = "#fff";
 
             if (typeof ScaleDrone === 'undefined') {
-                setTimeout(executarConexao, 1000);
+                setTimeout(conectarSala, 1000);
                 return;
             }
 
@@ -199,8 +198,9 @@
                 
                 room.on('open', error => {
                     if (error) return console.error(error);
-                    statusLabel.innerText = "SALA CONECTADA / AGUARDANDO PAR";
-                    statusLabel.style.backgroundColor = "#10b981";
+                    statusLabel.innerText = "CONEXÃO MATRIX ATIVA";
+                    statusLabel.style.backgroundColor = "#00ff66";
+                    statusLabel.style.color = "#000";
                     configurarWebRTC(true);
                 });
 
@@ -243,9 +243,6 @@
 
             pc.ontrack = event => {
                 remoteAudio.srcObject = event.streams[0];
-                statusLabel.innerText = "NO AR / LINK ATIVO";
-                statusLabel.style.backgroundColor = "#00ff66";
-                statusLabel.style.color = "#000";
             };
 
             if (localStream) {
@@ -254,7 +251,7 @@
         }
 
         function enviarMensagemSinal(message) {
-            if (drone) {
+            if (drone && room) {
                 drone.publish({
                     room: `observable-${roomInput.value.trim()}`,
                     message
@@ -274,13 +271,6 @@
                 console.error(e);
             }
         }
-
-        // Adiciona um gatilho de clique na tela para forçar a ativação caso o navegador bloqueie a inicialização automática
-        window.addEventListener('click', () => {
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-        });
 
         window.onload = iniciarSistema;
     </script>
