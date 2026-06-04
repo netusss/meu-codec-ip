@@ -3,156 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Ultra Estável</title>
+    <title>Codec IP Matrix - VU Restaurado</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
-        .codec-panel { max-width: 600px; margin: 50px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 30px; text-align: center; }
-        h1 { font-size: 24px; color: #fff; margin-bottom: 20px; letter-spacing: 1.5px; }
-        .status-badge { display: inline-block; background-color: #f59e0b; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-bottom: 25px; width: 100%; text-transform: uppercase; }
-        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 15px; transition: 0.2s; }
+        .codec-panel { max-width: 650px; margin: 30px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 30px; }
+        h1 { font-size: 22px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1.5px; text-transform: uppercase; }
+        .status-badge { display: inline-block; background-color: #22293a; color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 10px auto 25px auto; display: table; letter-spacing: 1px; text-transform: uppercase; text-align: center; width: 100%; }
+        .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
+        .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 24px; background-color: #05070a; padding: 4px; border-radius: 4px; }
+        .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; }
+        .led.green-on { background-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
+        .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
+        .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
+        .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; }
+        .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; }
+        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 15px; outline: none; margin-top: 5px; }
+        .btn-action { width: 100%; padding: 15px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 10px; }
         .btn-blue { background-color: #3b82f6; color: #fff; }
-        .btn-green { background-color: #00ff66; color: #000; display: none; } /* Só aparece após liberar mic */
-        .btn-reset { background-color: #22293a; color: #94a3b8; font-size: 12px; padding: 8px; margin-top: 20px; }
-        .room-box { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
-        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; text-align: center; font-size: 16px; font-weight: bold; margin-top: 5px; outline: none; }
+        .btn-green { background-color: #00ff66; color: #000; display: none; }
     </style>
-    <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
 </head>
 <body>
 
     <div class="codec-panel">
-        <h1>CODEC IP MATRIX</h1>
-        
-        <div class="status-badge" id="statusLabel">1º PASSO: ATIVAR ÁUDIO</div>
+        <h1>MEU CODEC IP MATRIX</h1>
+        <div class="status-badge" id="statusLabel">AGUARDANDO CONFIGURAÇÃO</div>
 
-        <button class="btn-action btn-blue" id="btnAtivar" onclick="ligarMicrofone()">🎤 CLIQUE PARA LIGAR MICROFONE</button>
+        <button class="btn-action btn-blue" id="btnAtivar" onclick="iniciarMicrofoneEVU()">🎤 1º PASSO: ATIVAR AUDIO LOCAL</button>
 
-        <div class="room-box">
-            <label style="font-size: 12px; color: #94a3b8;">NOME DA SALA (IGUAL NOS DOIS LADOS):</label>
-            <input type="text" id="roomInput" value="sala-conexao-direta">
+        <div class="vu-modulation-wrapper">
+            <label style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 8px; display: block;">MODULAÇÃO DO SEU MICROFONE:</label>
+            <div class="vu-led-container">
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+                <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
+            </div>
+            <div class="db-labels">
+                <span>-40 dB</span><span>-20 dB</span><span>-10 dB</span><span>-3 dB</span><span style="color: #ff3333;">0 dB (CLIP)</span>
+            </div>
         </div>
 
-        <button class="btn-action btn-green" id="btnConectar" onclick="conectarCanal()">⚡ CONECTAR TRANSMISSÃO</button>
+        <div class="config-section">
+            <label style="font-size: 12px; color: #94a3b8;">NOME DA SALA PRIVADA (DIGITE IGUAL NAS DUAS PONTAS):</label>
+            <input type="text" id="roomInput" value="sala-matrix-2026">
+        </div>
 
-        <button class="btn-action btn-reset" onclick="location.reload()">Resetar Sistema</button>
+        <button class="btn-action btn-green" id="btnConectar" onclick="conectarPontas()">⚡ 2º PASSO: CONECTAR LINK TRANSMISSÃO</button>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script>
-        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH'; // Seu ID configurado
-
-        let localStream, pc, drone, room;
+        let localStream, pc, ws, audioContext, analyser;
+        const leds = document.querySelectorAll('.led');
+        const statusLabel = document.getElementById('statusLabel');
+        const btnAtivar = document.getElementById('btnAtivar');
+        const btnConectar = document.getElementById('btnConectar');
+        const roomInput = document.getElementById('roomInput');
 
         const iceConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
-            ]
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
         };
 
-        // Ativa o microfone de forma limpa e sem scripts visuais pesados
-        async function ligarMicrofone() {
+        async function iniciarMicrofoneEVU() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
 
-                document.getElementById('statusLabel').innerText = "MICROFONE PRONTO / LIBERADO";
-                document.getElementById('statusLabel').style.backgroundColor = "#3b82f6";
-                
-                // Esconde o botão azul e mostra o verde de conectar
-                document.getElementById('btnAtivar').style.display = "none";
-                document.getElementById('btnConectar').style.display = "block";
+                statusLabel.innerText = "MICROFONE ATIVO / PRONTO";
+                statusLabel.style.backgroundColor = "#3b82f6";
+                btnAtivar.style.display = "none";
+                btnConectar.style.display = "block"; // Libera o segundo passo
+
+                // Ativa o motor gráfico de forma segura pós-clique
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(localStream);
+                analyser.fftSize = 64;
+                source.connect(analyser);
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                function rodarVU() {
+                    if (!localStream) return;
+                    requestAnimationFrame(rodarVU);
+                    analyser.getByteFrequencyData(dataArray);
+                    let soma = 0;
+                    for (let i = 0; i < dataArray.length; i++) { soma += dataArray[i]; }
+                    let volume = soma / dataArray.length;
+                    let numLeds = Math.min(20, Math.round((volume / 130) * 20));
+
+                    leds.forEach((led, index) => {
+                        led.className = 'led';
+                        if (index < numLeds && volume > 4) {
+                            if (index <= 12) led.classList.add('green-on');
+                            else if (index <= 16) led.classList.add('yellow-on');
+                            else led.classList.add('red-on');
+                        }
+                    });
+                }
+                rodarVU();
+
             } catch (err) {
-                document.getElementById('statusLabel').innerText = "ERRO: PERMISSÃO NEGADA";
-                document.getElementById('statusLabel').style.backgroundColor = "#ff3333";
-                alert("Clique no cadeado ao lado do link do site e mude o Microfone para PERMITIR.");
+                statusLabel.innerText = "ERRO: PERMISSÃO NEGADA";
+                statusLabel.style.backgroundColor = "#ff3333";
             }
         }
 
-        function conectarCanal() {
-            const sala = document.getElementById('roomInput').value.trim();
-            document.getElementById('statusLabel').innerText = "CONECTANDO LINK INTERNET...";
-            document.getElementById('statusLabel').style.backgroundColor = "#f59e0b";
+        function conectarPontas() {
+            const sala = roomInput.value.trim();
+            statusLabel.innerText = "CRUZANDO DADOS NA REDE...";
+            statusLabel.style.backgroundColor = "#f59e0b";
 
-            drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
-            
-            drone.on('open', error => {
-                if (error) return console.error(error);
-                
-                room = drone.subscribe(`observable-${sala}`);
-                
-                room.on('open', error => {
-                    if (error) return console.error(error);
-                    document.getElementById('statusLabel').innerText = "AGUARDANDO O OUTRO APARELHO...";
-                    document.getElementById('statusLabel').style.backgroundColor = "#10b981";
-                });
+            // Nova rota pública livre de chaves ou cadastros bloqueados
+            ws = new WebSocket(`wss://connect.websocket.in/v3/1?api_key=public_key&room=${sala}`);
 
-                room.on('members', members => {
-                    if (members.length > 1) {
-                        inicializarWebRTC(true);
-                    } else {
-                        inicializarWebRTC(false);
+            ws.onopen = () => {
+                statusLabel.innerText = "AGUARDANDO O OUTRO CODEC ENTRAR...";
+                statusLabel.style.backgroundColor = "#10b981";
+                configurarWebRTC(true);
+            };
+
+            ws.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+
+                if (message.sdp) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                    if (pc.remoteDescription.type === 'offer') {
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ sdp: pc.localDescription }));
                     }
-                });
-
-                room.on('member_join', () => {
-                    inicializarWebRTC(true);
-                });
-
-                room.on('data', (message, client) => {
-                    if (client.id === drone.clientId) return;
-
-                    if (message.sdp) {
-                        pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
-                            if (pc.remoteDescription.type === 'offer') {
-                                pc.createAnswer().then(description => {
-                                    pc.setLocalDescription(description, () => {
-                                        enviarSinal({ sdp: pc.localDescription });
-                                    }, console.error);
-                                });
-                            }
-                        }, console.error);
-                    } else if (message.candidate) {
-                        pc.addIceCandidate(new RTCIceCandidate(message.candidate), () => {}, console.error);
-                    }
-                });
-            });
+                } else if (message.candidate) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+                    } catch (e) {}
+                }
+            };
         }
 
-        function inicializarWebRTC(deveCriarOferta) {
+        function configurarWebRTC(enviarOferta) {
             if (pc) pc.close();
             pc = new RTCPeerConnection(iceConfig);
 
             pc.onicecandidate = event => {
-                if (event.candidate) enviarSinal({ candidate: event.candidate });
+                if (event.candidate) ws.send(JSON.stringify({ candidate: event.candidate }));
             };
 
             pc.ontrack = event => {
                 document.getElementById('remoteAudio').srcObject = event.streams[0];
-                document.getElementById('statusLabel').innerText = "🔴 NO AR / CONECTADO!";
-                document.getElementById('statusLabel').style.backgroundColor = "#00ff66";
-                document.getElementById('statusLabel').style.color = "#000";
+                statusLabel.innerText = "🔴 TRANSMISSÃO MATRIX NO AR!";
+                statusLabel.style.backgroundColor = "#00ff66";
+                statusLabel.style.color = "#000";
             };
 
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-            if (deveCriarOferta) {
-                pc.createOffer().then(description => {
-                    pc.setLocalDescription(description, () => {
-                        enviarSinal({ sdp: pc.localDescription });
-                    }, console.error);
-                });
-            }
-        }
-
-        function enviarSinal(message) {
-            const sala = document.getElementById('roomInput').value.trim();
-            if (drone && room) {
-                drone.publish({ room: `observable-${sala}`, message });
+            if (enviarOferta) {
+                pc.onnegotiationneeded = async () => {
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    ws.send(JSON.stringify({ sdp: pc.localDescription }));
+                };
             }
         }
     </script>
