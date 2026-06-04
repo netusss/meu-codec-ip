@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - VU Restaurado</title>
+    <title>Codec IP Matrix - Forçador TURN</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -18,7 +18,7 @@
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
         .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; }
         .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; }
-        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 15px; outline: none; margin-top: 5px; }
+        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 15px; outline: none; margin-top: 5px; text-align: center;}
         .btn-action { width: 100%; padding: 15px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 10px; }
         .btn-blue { background-color: #3b82f6; color: #fff; }
         .btn-green { background-color: #00ff66; color: #000; display: none; }
@@ -46,8 +46,8 @@
         </div>
 
         <div class="config-section">
-            <label style="font-size: 12px; color: #94a3b8;">NOME DA SALA PRIVADA (DIGITE IGUAL NAS DUAS PONTAS):</label>
-            <input type="text" id="roomInput" value="sala-matrix-2026">
+            <label style="font-size: 12px; color: #94a3b8;">NOME DA SALA PRIVADA (IGUAL NOS DOIS LADOS):</label>
+            <input type="text" id="roomInput" value="sala-matrix-premium">
         </div>
 
         <button class="btn-action btn-green" id="btnConectar" onclick="conectarPontas()">⚡ 2º PASSO: CONECTAR LINK TRANSMISSÃO</button>
@@ -63,8 +63,23 @@
         const btnConectar = document.getElementById('btnConectar');
         const roomInput = document.getElementById('roomInput');
 
+        // Configuração com servidores TURN livres e abertos para furar o bloqueio de portas UDP de operadoras
         const iceConfig = {
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:relays.metered.ca:443' },
+                { 
+                    urls: 'turn:relays.metered.ca:443', 
+                    username: 'openwebrtc', 
+                    credential: 'openwebrtcsecret' 
+                },
+                {
+                    urls: 'turn:relays.metered.ca:80',
+                    username: 'openwebrtc',
+                    credential: 'openwebrtcsecret'
+                }
+            ]
         };
 
         async function iniciarMicrofoneEVU() {
@@ -76,9 +91,8 @@
                 statusLabel.innerText = "MICROFONE ATIVO / PRONTO";
                 statusLabel.style.backgroundColor = "#3b82f6";
                 btnAtivar.style.display = "none";
-                btnConectar.style.display = "block"; // Libera o segundo passo
+                btnConectar.style.display = "block";
 
-                // Ativa o motor gráfico de forma segura pós-clique
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
                 const source = audioContext.createMediaStreamSource(localStream);
@@ -114,14 +128,13 @@
 
         function conectarPontas() {
             const sala = roomInput.value.trim();
-            statusLabel.innerText = "CRUZANDO DADOS NA REDE...";
+            statusLabel.innerText = "ROTEANDO CONEXÃO VIA TURN...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            // Nova rota pública livre de chaves ou cadastros bloqueados
             ws = new WebSocket(`wss://connect.websocket.in/v3/1?api_key=public_key&room=${sala}`);
 
             ws.onopen = () => {
-                statusLabel.innerText = "AGUARDANDO O OUTRO CODEC ENTRAR...";
+                statusLabel.innerText = "AGUARDANDO O OUTRO PAR...";
                 statusLabel.style.backgroundColor = "#10b981";
                 configurarWebRTC(true);
             };
@@ -154,7 +167,7 @@
 
             pc.ontrack = event => {
                 document.getElementById('remoteAudio').srcObject = event.streams[0];
-                statusLabel.innerText = "🔴 TRANSMISSÃO MATRIX NO AR!";
+                statusLabel.innerText = "🔴 NO AR / CONECTADO VIA TURN";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
             };
