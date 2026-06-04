@@ -1,40 +1,38 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Sistema Nativo</title>
+    <title>Codec IP Matrix - Link Direto</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
-        .codec-panel { max-width: 650px; margin: 30px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 30px; }
+        .codec-panel { max-width: 650px; margin: 20px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; }
         h1 { font-size: 22px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1.5px; text-transform: uppercase; }
-        .status-badge { display: inline-block; background-color: #22293a; color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; margin: 10px auto 25px auto; display: table; letter-spacing: 1px; text-transform: uppercase; text-align: center; width: 100%; }
-        .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
+        .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; margin: 10px auto 20px auto; display: table; letter-spacing: 1px; text-transform: uppercase; text-align: center; width: 100%; }
+        .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
         .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 24px; background-color: #05070a; padding: 4px; border-radius: 4px; }
         .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; }
         .led.green-on { background-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
         .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
         .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; }
-        .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; text-align: center; }
-        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 16px; outline: none; margin-top: 8px; text-align: center; font-weight: bold; }
-        .btn-action { width: 100%; padding: 15px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 10px; }
-        .btn-blue { background-color: #3b82f6; color: #fff; }
-        .btn-green { background-color: #00ff66; color: #000; display: none; }
+        .config-section { background-color: #0d1017; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #22293a; }
+        .config-section h3 { font-size: 12px; color: #00f2fe; text-transform: uppercase; margin-bottom: 10px; }
+        textarea { width: 100%; height: 75px; background-color: #161a26; border: 1px solid #334155; color: #00f2fe; padding: 10px; border-radius: 6px; font-size: 11px; outline: none; resize: none; font-family: monospace; }
+        .btn-action { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 8px; display: block; }
+        .btn-blue { background-color: #2563eb; color: #fff; }
+        .btn-green { background-color: #10b981; color: #fff; }
+        .btn-orange { background-color: #f59e0b; color: #000; }
     </style>
 </head>
 <body>
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">AGUARDANDO MICROFONE</div>
-
-        <button class="btn-action btn-blue" id="btnAtivar" onclick="iniciarAudioMundo()">🎤 1º PASSO: ATIVAR AUDIO LOCAL</button>
+        <div class="status-badge" id="statusLabel">🎧 PASSO 1: ATIVANDO O LOG DE ÁUDIO</div>
 
         <div class="vu-modulation-wrapper">
-            <label style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 8px; display: block;">MODULAÇÃO DO SEU MICROFONE:</label>
             <div class="vu-led-container">
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
@@ -42,48 +40,48 @@
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
             </div>
             <div class="db-labels">
-                <span>-40 dB</span><span>-20 dB</span><span>-10 dB</span><span>-3 dB</span><span style="color: #ff3333;">0 dB (CLIP)</span>
+                <span>-40 dB</span><span>-20 dB</span><span>-10 dB</span><span>-3 dB</span><span style="color: #ff3333;">0 dB</span>
             </div>
         </div>
 
         <div class="config-section">
-            <label style="font-size: 12px; color: #94a3b8;">DIGITE UM COGNOME PARA A SALA (IGUAL NAS DUAS PONTAS):</label>
-            <input type="text" id="roomInput" value="matrix-link-direto">
+            <h3>PAINEL DO GERADOR (Aparelho 1)</h3>
+            <button class="btn-action btn-blue" onclick="criarCanalOferta()">1. Gerar Chave de Transmissão</button>
+            <textarea id="chaveLocal" readonly placeholder="A sua chave de conexão vai aparecer aqui..."></textarea>
         </div>
 
-        <button class="btn-action btn-green" id="btnConectar" onclick="conectarCanalNativo()">⚡ 2º PASSO: CONECTAR TRANSMISSÃO</button>
+        <div class="config-section">
+            <h3>PAINEL DO RECEPTOR (Aparelho 2)</h3>
+            <textarea id="chaveRemota" placeholder="Cole aqui a chave gerada pelo Aparelho 1..."></textarea>
+            <button class="btn-action btn-green" onclick="receberOfertaECriarResposta()">2. Processar Chave e Responder</button>
+        </div>
+
+        <div class="config-section" id="secaoRespostaFinal" style="display:none;">
+            <h3>CONFIRMAÇÃO DO LINK (Volte ao Aparelho 1)</h3>
+            <textarea id="chaveRespostaFinal" placeholder="Cole aqui a resposta gerada pelo Aparelho 2..."></textarea>
+            <button class="btn-action btn-orange" onclick="aplicarRespostaFinal()">3. Validar e Entrar No Ar</button>
+        </div>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script>
-        let localStream, pc, ws, audioContext, analyser;
+        let localStream, pc, audioContext, analyser;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
-        const btnAtivar = document.getElementById('btnAtivar');
-        const btnConectar = document.getElementById('btnConectar');
-        const roomInput = document.getElementById('roomInput');
 
         const iceConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
-            ]
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
         };
 
-        async function iniciarAudioMundo() {
+        // Ativa o microfone e o VU de forma automática assim que a página abre
+        (async function autoStart() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
-
-                statusLabel.innerText = "MICROFONE OK / PRONTO PARA LINK";
-                statusLabel.style.backgroundColor = "#3b82f6";
-                btnAtivar.style.display = "none";
-                btnConectar.style.display = "block"; // Mostra o botão de conectar transmissão
-
-                // Ativação limpa do VU
+                statusLabel.innerText = "MICROFONE OPERACIONAL / AGUARDANDO COMANDO";
+                
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
                 const source = audioContext.createMediaStreamSource(localStream);
@@ -110,74 +108,71 @@
                     });
                 }
                 rodarVU();
-
             } catch (err) {
-                statusLabel.innerText = "ERRO DE HARDWARE / PERMISSÃO";
+                statusLabel.innerText = "ERRO: LIBERE O MICROFONE NO CADEADO DO NAVEGADOR";
                 statusLabel.style.backgroundColor = "#ff3333";
             }
-        }
+        })();
 
-        function conectarCanalNativo() {
-            const sala = roomInput.value.trim();
-            statusLabel.innerText = "ABRINDO PORTAS DE REDE...";
-            statusLabel.style.backgroundColor = "#f59e0b";
-
-            // Canal estável e livre usando protocolo padrão sem restrições
-            ws = new WebSocket(`wss://server.cometondatachannel.com/${sala}`);
-
-            ws.onopen = () => {
-                statusLabel.innerText = "SALA ATIVA! ENTRANDO NO AR...";
-                statusLabel.style.backgroundColor = "#10b981";
-                configurarWebRTCNativo(true);
-            };
-
-            ws.onmessage = async (event) => {
-                const message = JSON.parse(event.data);
-
-                if (message.sdp) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                    if (pc.remoteDescription.type === 'offer') {
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        ws.send(JSON.stringify({ sdp: pc.localDescription }));
-                    }
-                } else if (message.candidate) {
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                    } catch (e) {}
-                }
-            };
-            
-            ws.onerror = () => {
-                statusLabel.innerText = "FALHA NO SERVIDOR DE SINAL";
-                statusLabel.style.backgroundColor = "#ff3333";
-            };
-        }
-
-        function configurarWebRTCNativo(criarOferta) {
-            if (pc) pc.close();
+        function iniciarWebRTC() {
             pc = new RTCPeerConnection(iceConfig);
-
-            pc.onicecandidate = event => {
-                if (event.candidate) ws.send(JSON.stringify({ candidate: event.candidate }));
-            };
+            
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
             pc.ontrack = event => {
                 document.getElementById('remoteAudio').srcObject = event.streams[0];
-                statusLabel.innerText = "🔴 REDE MATRIX ATIVA (CONECTADO)";
+                statusLabel.innerText = "🔴 NO AR / CONEXÃO ESTÁVEL DIRETA";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
             };
 
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            pc.onicecandidate = event => {
+                if (!event.candidate) {
+                    // Quando terminar de gerar os candidatos, atualiza o campo com a chave completa
+                    document.getElementById('chaveLocal').value = btoa(JSON.stringify(pc.localDescription));
+                }
+            };
+        }
 
-            if (criarOferta) {
-                pc.onnegotiationneeded = async () => {
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
-                    ws.send(JSON.stringify({ sdp: pc.localDescription }));
-                };
-            }
+        // No aparelho 1: Gera a oferta de sinalização
+        async function criarCanalOferta() {
+            iniciarWebRTC();
+            document.getElementById('secaoRespostaFinal').style.display = 'block';
+            statusLabel.innerText = "GERANDO CHAVE... AGUARDE...";
+            
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+        }
+
+        // No aparelho 2: Recebe a oferta e gera a resposta
+        async function receberOfertaECriarResposta() {
+            const stringChave = document.getElementById('chaveRemota').value.trim();
+            if(!stringChave) return alert("Cole a chave do Aparelho 1 primeiro!");
+
+            iniciarWebRTC();
+            statusLabel.innerText = "GERANDO RESPOSTA...";
+
+            const sdpDesc = JSON.parse(atob(stringChave));
+            await pc.setRemoteDescription(new RTCSessionDescription(sdpDesc));
+            
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            pc.onicecandidate = event => {
+                if (!event.candidate) {
+                    document.getElementById('chaveLocal').value = btoa(JSON.stringify(pc.localDescription));
+                    statusLabel.innerText = "RESPOSTA GERADA! COPIE A CHAVE DO APARELHO 2";
+                }
+            };
+        }
+
+        // De volta no aparelho 1: Aplica o fechamento do link
+        async function aplicarRespostaFinal() {
+            const stringResposta = document.getElementById('chaveRespostaFinal').value.trim();
+            if(!stringResposta) return alert("Cole a chave de resposta gerada pelo Aparelho 2!");
+
+            const sdpDesc = JSON.parse(atob(stringResposta));
+            await pc.setRemoteDescription(new RTCSessionDescription(sdpDesc));
         }
     </script>
 </body>
