@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Estabilizado</title>
+    <title>Codec IP Matrix - Link Total</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
@@ -33,12 +33,12 @@
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">SISTEMA INICIALizado</div>
+        <div class="status-badge" id="statusLabel">SISTEMA ONLINE</div>
 
-        <button class="btn-action btn-activate-mic" id="btnAtivar" onclick="inicializarAudioGarantido()">🎤 CLIQUE AQUI PARA ATIVAR SEU MICROFONE</button>
+        <button class="btn-action btn-activate-mic" id="btnAtivar" onclick="inicializarAudioGarantido()">🎤 1º CLIQUE: LIGAR MEU MICROFONE</button>
 
         <div class="vu-modulation-wrapper">
-            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">MODULAÇÃO DO MICROFONE:</label>
+            <label style="font-weight: bold; color: #fff; margin-bottom: 8px; display: block;">MODULAÇÃO EM TEMPO REAL:</label>
             <div class="vu-led-container">
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
                 <div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div><div class="led"></div>
@@ -53,10 +53,10 @@
         <div class="config-section">
             <h3>Conexão por Sala Estável</h3>
             <div class="form-group">
-                <label>Nome da Sala:</label>
-                <input type="text" id="roomInput" value="sala-principal">
+                <label>Nome da Sala (Digite igual nas duas pontas):</label>
+                <input type="text" id="roomInput" value="sala-matrix">
             </div>
-            <button class="btn-action btn-connect-peer" onclick="conectarSala()">⚡ CONECTAR LINK AUDIO</button>
+            <button class="btn-action btn-connect-peer" onclick="conectarSala()">⚡ 2º CLIQUE: CONECTAR LINK ÁUDIO</button>
         </div>
 
         <div class="config-section">
@@ -72,7 +72,7 @@
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH'; 
+        const SCALEDRONE_CHANNEL_ID = 'cZNB0j3LazMXWekH'; // Seu ID configurado e ativo
 
         let localStream, pc, audioContext, analyser, drone, room;
         const leds = document.querySelectorAll('.led');
@@ -106,15 +106,14 @@
                     }
                 });
 
-                statusLabel.innerText = "MICROFONE LIGADO";
+                statusLabel.innerText = "MICROFONE ATIVO";
                 statusLabel.style.backgroundColor = "#3b82f6";
                 btnAtivar.style.display = "none";
 
                 renderizarVUMeter();
             } catch (err) {
-                statusLabel.innerText = "ERRO DE ACESSO";
+                statusLabel.innerText = "ERRO MICROFONE";
                 statusLabel.style.backgroundColor = "#ff3333";
-                console.error(err);
             }
         }
 
@@ -125,21 +124,15 @@
             
             analyser.fftSize = 64;
             source.connect(analyser);
-
             const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
             function atualizar() {
                 if (!localStream) return;
                 requestAnimationFrame(atualizar);
-                
                 analyser.getByteFrequencyData(dataArray);
                 let somatorio = 0;
-                for (let i = 0; i < dataArray.length; i++) {
-                    somatorio += dataArray[i];
-                }
+                for (let i = 0; i < dataArray.length; i++) { somatorio += dataArray[i]; }
                 let mediaVolume = somatorio / dataArray.length;
-                
-                // Conversão direta de volume para os 20 leds
                 let ledsAcesos = Math.min(20, Math.round((mediaVolume / 140) * 20));
 
                 leds.forEach((led, index) => {
@@ -156,9 +149,9 @@
 
         function conectarSala() {
             const sala = roomInput.value.trim();
-            if (!localStream) return alert("Ative seu microfone no botão azul primeiro!");
+            if (!localStream) return alert("Ative seu microfone primeiro!");
 
-            statusLabel.innerText = "CONECTANDO LINK IP...";
+            statusLabel.innerText = "CONECTANDO NO SERVIDOR...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
             drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
@@ -169,10 +162,11 @@
                 
                 room.on('open', error => {
                     if (error) return console.error(error);
-                    statusLabel.innerText = "CONEXÃO MATRIX ATIVA";
-                    statusLabel.style.backgroundColor = "#00ff66";
-                    statusLabel.style.color = "#000";
-                    configurarWebRTC(true);
+                    statusLabel.innerText = "SALA CONECTADA / AGUARDANDO PAR";
+                    statusLabel.style.backgroundColor = "#10b981";
+                    
+                    // Inicia a estrutura WebRTC imediatamente
+                    configurarWebRTC();
                 });
 
                 room.on('data', (message, client) => {
@@ -195,41 +189,41 @@
             });
         }
 
-        function configurarWebRTC(isInitiator) {
-            pc = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
-            });
+        function configurarWebRTC() {
+            pc = new RTCPeerConnection(iceConfig);
 
             pc.onicecandidate = event => {
                 if (event.candidate) enviarMensagemSinal({ candidate: event.candidate });
             };
 
-            if (isInitiator) {
-                pc.onnegotiationneeded = () => {
-                    pc.createOffer().then(description => {
-                        pc.setLocalDescription(description, () => {
-                            enviarMensagemSinal({ sdp: pc.localDescription });
-                        }, console.error);
-                    });
-                };
-            }
-
+            // Quando o link de áudio remoto chegar, joga direto na tag de áudio
             pc.ontrack = event => {
                 remoteAudio.srcObject = event.streams[0];
+                statusLabel.innerText = "CONEXÃO MATRIX ATIVA (NO AR)";
+                statusLabel.style.backgroundColor = "#00ff66";
+                statusLabel.style.color = "#000";
             };
 
+            // Adiciona seu microfone local na transmissão externa
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            // Dispara o convite de conexão para quem estiver na sala ouvir
+            pc.createOffer().then(description => {
+                pc.setLocalDescription(description, () => {
+                    enviarMensagemSinal({ sdp: pc.localDescription });
+                }, console.error);
+            });
         }
 
-    // Garanta que a função enviarMensagemSinal esteja exatamente assim:
-function enviarMensagemSinal(message) {
-    if (drone) {
-        drone.publish({
-            room: `observable-${roomInput.value.trim()}`,
-            message: message
-        });
-    }
-}
+        function enviarMensagemSinal(message) {
+            if (drone && room) {
+                drone.publish({
+                    room: `observable-${roomInput.value.trim()}`,
+                    message: message
+                });
+            }
+        }
+
         async function trocarMicrofone() {
             const inputId = audioInputSelect.value;
             if (localStream) localStream.getTracks().forEach(track => track.stop());
