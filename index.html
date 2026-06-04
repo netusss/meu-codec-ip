@@ -1,15 +1,16 @@
-<<!DOCTYPE html>
+
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Forçador TURN</title>
+    <title>Codec IP Matrix - Conexão Direta</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 20px; }
         .codec-panel { max-width: 650px; margin: 30px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 30px; }
         h1 { font-size: 22px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1.5px; text-transform: uppercase; }
-        .status-badge { display: inline-block; background-color: #22293a; color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 10px auto 25px auto; display: table; letter-spacing: 1px; text-transform: uppercase; text-align: center; width: 100%; }
+        .status-badge { display: inline-block; background-color: #22293a; color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; margin: 10px auto 25px auto; display: table; letter-spacing: 1px; text-transform: uppercase; text-align: center; width: 100%; }
         .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 25px; }
         .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 24px; background-color: #05070a; padding: 4px; border-radius: 4px; }
         .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 2px; }
@@ -17,20 +18,22 @@
         .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
         .db-labels { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #64748b; margin-top: 5px; }
-        .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; }
-        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 15px; outline: none; margin-top: 5px; text-align: center;}
+        .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; text-align: center; }
+        .id-display { font-size: 24px; font-family: monospace; color: #00f2fe; font-weight: bold; background: #161a26; padding: 10px; border-radius: 6px; margin: 10px 0; border: 1px dashed #00f2fe; display: inline-block; letter-spacing: 2px; }
+        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; font-size: 16px; outline: none; margin-top: 8px; text-align: center; font-family: monospace; }
         .btn-action { width: 100%; padding: 15px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-bottom: 10px; }
         .btn-blue { background-color: #3b82f6; color: #fff; }
-        .btn-green { background-color: #00ff66; color: #000; display: none; }
+        .btn-green { background-color: #00ff66; color: #000; }
     </style>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 </head>
 <body>
 
     <div class="codec-panel">
         <h1>MEU CODEC IP MATRIX</h1>
-        <div class="status-badge" id="statusLabel">AGUARDANDO CONFIGURAÇÃO</div>
+        <div class="status-badge" id="statusLabel">1º PASSO: ATIVAR O MICROFONE</div>
 
-        <button class="btn-action btn-blue" id="btnAtivar" onclick="iniciarMicrofoneEVU()">🎤 1º PASSO: ATIVAR AUDIO LOCAL</button>
+        <button class="btn-action btn-blue" id="btnAtivar" onclick="iniciarMicrofoneEVU()">🎤 CLIQUE PARA ATIVAR AUDIO LOCAL</button>
 
         <div class="vu-modulation-wrapper">
             <label style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 8px; display: block;">MODULAÇÃO DO SEU MICROFONE:</label>
@@ -45,42 +48,30 @@
             </div>
         </div>
 
-        <div class="config-section">
-            <label style="font-size: 12px; color: #94a3b8;">NOME DA SALA PRIVADA (IGUAL NOS DOIS LADOS):</label>
-            <input type="text" id="roomInput" value="sala-matrix-premium">
-        </div>
+        <div id="painelConexao" style="display: none;">
+            <div class="config-section">
+                <p style="font-size: 13px; color: #94a3b8;">O ID DESTE APARELHO É:</p>
+                <div class="id-display" id="myIdDisplay">GERANDO...</div>
+            </div>
 
-        <button class="btn-action btn-green" id="btnConectar" onclick="conectarPontas()">⚡ 2º PASSO: CONECTAR LINK TRANSMISSÃO</button>
+            <div class="config-section">
+                <label style="font-size: 13px; color: #94a3b8; display: block;">PARA CONECTAR, DIGITE O ID DO OUTRO APARELHO ABAIXO:</label>
+                <input type="text" id="remoteIdInput" placeholder="Ex: 4589">
+                <button class="btn-action btn-green" style="margin-top: 15px;" onclick="conectarAoPeer()">⚡ DISPARAR TRANSMISSÃO TRANSMISSÃO</button>
+            </div>
+        </div>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script>
-        let localStream, pc, ws, audioContext, analyser;
+        let localStream, peer, audioContext, analyser;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const btnAtivar = document.getElementById('btnAtivar');
-        const btnConectar = document.getElementById('btnConectar');
-        const roomInput = document.getElementById('roomInput');
-
-        // Configuração com servidores TURN livres e abertos para furar o bloqueio de portas UDP de operadoras
-        const iceConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:relays.metered.ca:443' },
-                { 
-                    urls: 'turn:relays.metered.ca:443', 
-                    username: 'openwebrtc', 
-                    credential: 'openwebrtcsecret' 
-                },
-                {
-                    urls: 'turn:relays.metered.ca:80',
-                    username: 'openwebrtc',
-                    credential: 'openwebrtcsecret'
-                }
-            ]
-        };
+        const myIdDisplay = document.getElementById('myIdDisplay');
+        const remoteIdInput = document.getElementById('remoteIdInput');
+        const painelConexao = document.getElementById('painelConexao');
 
         async function iniciarMicrofoneEVU() {
             try {
@@ -88,11 +79,12 @@
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
 
-                statusLabel.innerText = "MICROFONE ATIVO / PRONTO";
+                statusLabel.innerText = "MICROFONE OK. GERANDO SEU ID...";
                 statusLabel.style.backgroundColor = "#3b82f6";
                 btnAtivar.style.display = "none";
-                btnConectar.style.display = "block";
+                painelConexao.style.display = "block";
 
+                // Inicia o VU com segurança
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
                 const source = audioContext.createMediaStreamSource(localStream);
@@ -120,67 +112,72 @@
                 }
                 rodarVU();
 
+                // Inicializa o PeerJS para gerar o ID de conexão direta por portas unificadas
+                inicializarPeerJS();
+
             } catch (err) {
                 statusLabel.innerText = "ERRO: PERMISSÃO NEGADA";
                 statusLabel.style.backgroundColor = "#ff3333";
             }
         }
 
-        function conectarPontas() {
-            const sala = roomInput.value.trim();
-            statusLabel.innerText = "ROTEANDO CONEXÃO VIA TURN...";
-            statusLabel.style.backgroundColor = "#f59e0b";
-
-            ws = new WebSocket(`wss://connect.websocket.in/v3/1?api_key=public_key&room=${sala}`);
-
-            ws.onopen = () => {
-                statusLabel.innerText = "AGUARDANDO O OUTRO PAR...";
-                statusLabel.style.backgroundColor = "#10b981";
-                configurarWebRTC(true);
-            };
-
-            ws.onmessage = async (event) => {
-                const message = JSON.parse(event.data);
-
-                if (message.sdp) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                    if (pc.remoteDescription.type === 'offer') {
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        ws.send(JSON.stringify({ sdp: pc.localDescription }));
-                    }
-                } else if (message.candidate) {
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                    } catch (e) {}
+        function inicializarPeerJS() {
+            // Gera um ID numérico aleatório de 4 dígitos para facilitar a digitação no celular/PC
+            const idAleatorio = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            peer = new Peer(idAleatorio, {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+                    ]
                 }
-            };
+            });
+
+            peer.on('open', (id) => {
+                myIdDisplay.innerText = id;
+                statusLabel.innerText = "PRONTO PARA CONECTAR";
+                statusLabel.style.backgroundColor = "#10b981";
+            });
+
+            // Configura o aparelho para "atender" a chamada de áudio do outro lado automaticamente
+            peer.on('call', (call) => {
+                statusLabel.innerText = "RECEBENDO ÁUDIO...";
+                statusLabel.style.backgroundColor = "#f59e0b";
+                
+                call.answer(localStream); // Atende enviando o próprio mic
+                
+                call.on('stream', (remoteStream) => {
+                    document.getElementById('remoteAudio').srcObject = remoteStream;
+                    statusLabel.innerText = "🔴 NO AR / CONECTADO DIRETO";
+                    statusLabel.style.backgroundColor = "#00ff66";
+                    statusLabel.style.color = "#000";
+                });
+            });
         }
 
-        function configurarWebRTC(enviarOferta) {
-            if (pc) pc.close();
-            pc = new RTCPeerConnection(iceConfig);
+        function conectarAoPeer() {
+            const remoteId = remoteIdInput.value.trim();
+            if (!remoteId) return alert("Digite o ID do outro aparelho!");
 
-            pc.onicecandidate = event => {
-                if (event.candidate) ws.send(JSON.stringify({ candidate: event.candidate }));
-            };
+            statusLabel.innerText = "CHAMANDO CODEC " + remoteId + "...";
+            statusLabel.style.backgroundColor = "#f59e0b";
 
-            pc.ontrack = event => {
-                document.getElementById('remoteAudio').srcObject = event.streams[0];
-                statusLabel.innerText = "🔴 NO AR / CONECTADO VIA TURN";
+            // Liga para o outro aparelho transmitindo o microfone local
+            const call = peer.call(remoteId, localStream);
+
+            call.on('stream', (remoteStream) => {
+                document.getElementById('remoteAudio').srcObject = remoteStream;
+                statusLabel.innerText = "🔴 NO AR / CONECTADO DIRETO";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
-            };
+            });
 
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-            if (enviarOferta) {
-                pc.onnegotiationneeded = async () => {
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
-                    ws.send(JSON.stringify({ sdp: pc.localDescription }));
-                };
-            }
+            call.on('error', (err) => {
+                statusLabel.innerText = "FALHA NA CONEXÃO";
+                statusLabel.style.backgroundColor = "#ff3333";
+                console.error(err);
+            });
         }
     </script>
 </body>
