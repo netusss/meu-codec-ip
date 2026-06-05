@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Broadcast</title>
+    <title>Codec IP Matrix - Broadcast Real</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; }
         .codec-panel { max-width: 500px; margin: 20px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; transition: all 0.4s ease; }
         .success-glow { border-color: #00ff66 !important; box-shadow: 0 0 35px rgba(0, 255, 102, 0.5) !important; }
         h1 { font-size: 20px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
-        .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; text-transform: uppercase; transition: 0.2s; }
+        .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; text-transform: uppercase; }
         .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
         .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 24px; background-color: #05070a; padding: 4px; border-radius: 4px; }
         .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 1px; }
@@ -21,13 +21,13 @@
         input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #00f2fe; padding: 12px; border-radius: 6px; font-size: 18px; outline: none; margin-top: 5px; text-align: center; font-weight: bold; letter-spacing: 1px; }
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
         .btn-green { background-color: #10b981; color: #fff; }
-        .btn-unmute { background-color: #f59e0b; color: #000; margin-top: 10px; display: none; font-size: 14px; }
+        .btn-unmute { background-color: #f59e0b; color: #000; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
     <div class="codec-panel" id="panelMatrix">
-        <h1>🎙️ MATRIX LIVE CODEC v4</h1>
+        <h1>🎙️ MATRIX LIVE CODEC v5</h1>
         <div class="status-badge" id="statusLabel">INICIALIZANDO MICROFONE...</div>
 
         <div class="vu-modulation-wrapper">
@@ -40,18 +40,18 @@
         </div>
 
         <div class="config-section">
-            <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">CÓDIGO DE SINCRONISMO DOS CODECS:</label>
-            <input type="text" id="roomInput" value="matrix-prime">
+            <label style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">CÓDIGO DO CANAL (COMBINE COM O ESTÚDIO):</label>
+            <input type="text" id="roomInput" value="matrix-live-77">
         </div>
 
-        <button class="btn-action btn-green" id="btnConectar" onclick="conectarTransmissao()">⚡ CONECTAR LINHA DIRETA</button>
+        <button class="btn-action btn-green" id="btnConectar" onclick="conectarViaCanalHTTPS()">⚡ ENTRAR NO AR AGORA</button>
         <button class="btn-action btn-unmute" id="btnUnmute" onclick="forcarAudioCelular()">🔊 CLIQUE AQUI PARA OUVIR O RETORNO</button>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
     <script>
-        let localStream, pc, ws, audioContext, analyser;
+        let localStream, pc, audioContext, analyser, loopSinalizacao;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const roomInput = document.getElementById('roomInput');
@@ -59,7 +59,9 @@
         const btnUnmute = document.getElementById('btnUnmute');
         const remoteAudio = document.getElementById('remoteAudio');
 
-        // Servidores Google STUN e Twilio integrados para quebrar o CGNAT do 4G/5G
+        const myId = "id_" + Math.random().toString(16).substr(2, 6);
+
+        // STUN Servers estáveis
         const iceConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -68,24 +70,19 @@
             ]
         };
 
-        // Alerta Sonoro de Conexão Ativa
         function darBipeSucesso() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
-                osc.type = "sine";
-                osc.frequency.value = 700;
+                osc.type = "sine"; osc.frequency.value = 650;
                 gain.gain.setValueAtTime(0.2, ctx.currentTime);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.25);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(); osc.stop(ctx.currentTime + 0.2);
             } catch(e) {}
         }
 
-        // Auto-start do Microfone e VU
-        async function inicializarAudioLocal() {
+        async function inicializarAudio() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true }
@@ -121,42 +118,60 @@
                 }
                 rodarVU();
             } catch (err) {
-                statusLabel.innerText = "ERRO: LIBERE O MICROFONE";
+                statusLabel.innerText = "ERRO: PERMISSÃO DO MICROFONE";
                 statusLabel.style.backgroundColor = "#ff3333";
             }
         }
-        window.onload = inicializarAudioLocal;
+        window.onload = inicializarAudio;
 
-        function conectarTransmissao() {
-            const sala = roomInput.value.trim();
-            statusLabel.innerText = "📡 ESTABELECENDO PONTE DE REDE...";
+        async function enviarDadosHTTPS(canal, payload) {
+            try {
+                payload.sender = myId;
+                await fetch(`https://api.countapi.xyz/set/matrix_codec_${canal}/data`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: btoa(JSON.stringify(payload)) })
+                });
+            } catch(e) {
+                // Rota de contingência caso a primária sofra throttle
+                await fetch(`https://kv-relay.deno.dev/${canal}`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                }).catch(()=>{});
+            }
+        }
+
+        async function conectarViaCanalHTTPS() {
+            const sala = roomInput.value.trim().toLowerCase();
+            statusLabel.innerText = "📡 SINTONIZANDO CANAL TRÁFEGO SEGURO...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            // Nova rota global via PieSocket pública sem barreiras de região
-            ws = new WebSocket(`wss://demo.piesocket.com/v3/${sala}?api_key=VCXCEuvK8oxJgGSWKAwZThOmR6W85H506iG7XwQC&notify_self=0`);
+            configurarWebRTC(true);
 
-            ws.onopen = () => {
-                statusLabel.innerText = "⏳ AGUARDANDO OUTRO APARELHO ENTRAR...";
-                statusLabel.style.backgroundColor = "#2563eb";
-                configurarWebRTC(true);
-            };
-
-            ws.onmessage = async (event) => {
-                const message = JSON.parse(event.data);
-
-                if (message.sdp) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                    if (pc.remoteDescription.type === 'offer') {
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        ws.send(JSON.stringify({ sdp: pc.localDescription }));
+            // Escuta ativa via Polling HTTP a cada 1.5 segundos (À prova de bloqueios de firewall)
+            loopSinalizacao = setInterval(async () => {
+                try {
+                    const res = await fetch(`https://kv-relay.deno.dev/${sala}`);
+                    if (res.ok) {
+                        const message = await res.json();
+                        if (message && message.sender !== myId) {
+                            if (message.sdp) {
+                                await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                                if (pc.remoteDescription.type === 'offer') {
+                                    const answer = await pc.createAnswer();
+                                    await pc.setLocalDescription(answer);
+                                    await enviarDadosHTTPS(sala, { sdp: pc.localDescription });
+                                }
+                            } else if (message.candidate) {
+                                try { await pc.addIceCandidate(new RTCIceCandidate(message.candidate)); } catch(e){}
+                            }
+                        }
                     }
-                } else if (message.candidate) {
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                    } catch (e) {}
-                }
-            };
+                } catch(e) {}
+            }, 1500);
+
+            statusLabel.innerText = "⏳ NO AR. AGUARDANDO RETORNO DO ESTÚDIO...";
+            statusLabel.style.backgroundColor = "#2563eb";
         }
 
         function configurarWebRTC(criarOferta) {
@@ -164,35 +179,35 @@
             pc = new RTCPeerConnection(iceConfig);
 
             pc.onicecandidate = event => {
-                if (event.candidate) ws.send(JSON.stringify({ candidate: event.candidate }));
+                const sala = roomInput.value.trim().toLowerCase();
+                if (event.candidate) enviarDadosHTTPS(sala, { candidate: event.candidate });
             };
 
-            // INTERCEPÇÃO DE ÁUDIO ATIVO
             pc.ontrack = event => {
+                clearInterval(loopSinalizacao); // Para o consumo de banda de sinalização
                 remoteAudio.srcObject = event.streams[0];
                 
-                // MUDANÇA TOTAL PARA AVISO VISUAL E SONORO
                 statusLabel.innerText = "🟢 CONECTADO / NO AR COM RETORNO";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
                 panelMatrix.classList.add("success-glow");
                 
                 darBipeSucesso();
-                btnUnmute.style.display = "block"; // Mostra o botão para garantir a saída do áudio
+                btnUnmute.style.display = "block"; 
             };
 
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
             if (criarOferta) {
                 pc.onnegotiationneeded = async () => {
+                    const sala = roomInput.value.trim().toLowerCase();
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
-                    ws.send(JSON.stringify({ sdp: pc.localDescription }));
+                    await enviarDadosHTTPS(sala, { sdp: pc.localDescription });
                 };
             }
         }
 
-        // Corrige a trava de segurança que os celulares têm de mutar áudios automáticos
         function forcarAudioCelular() {
             if (remoteAudio) {
                 remoteAudio.play();
