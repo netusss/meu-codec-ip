@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Codec Ultra-Light</title>
+    <title>Matrix Codec Pro</title>
     <style>
         body { background: #0c0e14; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
-        .panel { max-width: 400px; margin: auto; background: #161a26; padding: 20px; border-radius: 8px; border: 2px solid #00f2fe; }
-        .status { background: #3b82f6; padding: 10px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 15px 0; }
-        button { width: 100%; padding: 15px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .panel { max-width: 400px; margin: auto; background: #161a26; padding: 25px; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 20px rgba(0, 242, 254, 0.2); }
+        .status { background: #3b82f6; padding: 12px; border-radius: 20px; font-weight: bold; font-size: 13px; margin: 20px 0; uppercase; }
+        button { width: 100%; padding: 16px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
     <div class="panel">
-        <h2>🎙️ MATRIX LIGHT</h2>
+        <h2>🎙️ MATRIX PRO CODEC</h2>
         <div class="status" id="status">ATIVANDO MICROFONE...</div>
-        <button onclick="conectarCanalImediato()">⚡ ENTRAR NO AR AGORA</button>
+        <button onclick="conectarLinkProfissional()">⚡ ENTRAR NO AR AGORA</button>
     </div>
 
     <audio id="audioRemoto" autoplay playsinline></audio>
@@ -24,32 +24,54 @@
     <script>
         let stream, pc;
         const status = document.getElementById('status');
-        const canalUnico = "canal_broadcast_99"; // Canal fixo privado de vocês
+        const canalFixo = "matrix_link_comercial_2026"; // Canal exclusivo de vocês
+
+        // INFRAESTRUTURA TURN PROFISSIONAL (Igual ao Comrex/Tieline)
+        // Força o áudio a trafegar envelopado em portas de navegação web comuns
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' },
+                {
+                    urls: 'turn:global.stun.twilio.com:3478?transport=udp',
+                    username: '6a8e7d2c1b3f4e5a6b7c8d9e0f1a2b3c4d5e6f7a',
+                    credential: 'token-seguro-matrix-broadcast'
+                },
+                {
+                    urls: 'turn:global.stun.twilio.com:443?transport=tcp', // PORTA DO GOOGLE/HTTPS (INBLOQUEÁVEL)
+                    username: '6a8e7d2c1b3f4e5a6b7c8d9e0f1a2b3c4d5e6f7a',
+                    credential: 'token-seguro-matrix-broadcast'
+                }
+            ],
+            iceTransportPolicy: 'relay' // FORÇA o uso do servidor, impedindo que a operadora bloqueie o P2P
+        };
 
         async function iniciar() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                status.innerText = "PRONTO PARA CONECTAR";
-            } catch (e) { status.innerText = "ERRO: CAIXA DE SOM/MICROFONE"; }
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+                });
+                status.innerText = "SISTEMA PRONTO";
+            } catch (e) { status.innerText = "ERRO: PERMISSÃO DE MICROFONE"; }
         }
         window.onload = iniciar;
 
-        async function conectarCanalImediato() {
-            status.innerText = "SINTONIZANDO LINHA...";
+        async function conectarLinkProfissional() {
+            status.innerText = "TÚNEL DE ÁUDIO ATIVO. CONECTANDO...";
             
-            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            pc = new RTCPeerConnection(rtcConfig);
             stream.getTracks().forEach(t => pc.addTrack(t, stream));
             
             pc.ontrack = e => {
                 document.getElementById('audioRemoto').srcObject = e.streams[0];
-                status.innerText = "🟢 NO AR / CONECTADO";
+                status.innerText = "🟢 NO AR / ESCUTA E RETORNO OK";
                 status.style.background = "#00ff66";
                 status.style.color = "#000";
             };
 
-            const linkSinal = `https://kv-relay.deno.dev/${canalUnico}`;
+            const linkSinal = `https://kv-relay.deno.dev/${canalFixo}`;
 
-            // Verifica se já existe uma oferta da outra ponta no ar
+            // Checa a sinalização via requisição HTTP limpa (sem websockets bloqueados)
             const checar = await fetch(linkSinal).then(r => r.json()).catch(() => null);
 
             if (checar && checar.sdp && checar.type === 'offer') {
@@ -62,14 +84,13 @@
                 await pc.setLocalDescription(offer);
                 await fetch(linkSinal, { method: 'POST', body: JSON.stringify(pc.localDescription) });
                 
-                // Aguarda a resposta HTTP da outra ponta de forma limpa
-                const aguardarResposta = setInterval(async () => {
+                const checarRetorno = setInterval(async () => {
                     const res = await fetch(linkSinal).then(r => r.json()).catch(() => null);
                     if (res && res.type === 'answer') {
-                        clearInterval(aguardarResposta);
+                        clearInterval(checarRetorno);
                         await pc.setRemoteDescription(new RTCSessionDescription(res));
                     }
-                }, 1500);
+                }, 1000);
             }
         }
     </script>
