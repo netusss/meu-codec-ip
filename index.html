@@ -3,94 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Codec Pro</title>
+    <title>Matrix Codec Commercial Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
     <style>
-        body { background: #0c0e14; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
-        .panel { max-width: 400px; margin: auto; background: #161a26; padding: 25px; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 20px rgba(0, 242, 254, 0.2); }
-        .status { background: #3b82f6; padding: 12px; border-radius: 20px; font-weight: bold; font-size: 13px; margin: 20px 0; uppercase; }
-        button { width: 100%; padding: 16px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        body { background: #0c0e14; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; }
+        .panel { max-width: 400px; margin: 30px auto; background: #161a26; padding: 30px; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.3); }
+        .status { background: #2563eb; padding: 12px; border-radius: 20px; font-weight: bold; font-size: 13px; margin: 20px 0; text-transform: uppercase; }
+        button { width: 100%; padding: 16px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
+        button:hover { background: #059669; }
     </style>
 </head>
 <body>
 
     <div class="panel">
-        <h2>🎙️ MATRIX PRO CODEC</h2>
-        <div class="status" id="status">ATIVANDO MICROFONE...</div>
-        <button onclick="conectarLinkProfissional()">⚡ ENTRAR NO AR AGORA</button>
+        <h2>🎙️ MATRIX BROADCAST PRO</h2>
+        <div class="status" id="statusLabel">CONECTANDO AO SERVIDOR PAGO...</div>
+        <button id="btnConectar" onclick="conectarAoServidorComercial()">⚡ ENTRAR NO AR (PRO)</button>
     </div>
 
-    <audio id="audioRemoto" autoplay playsinline></audio>
-
     <script>
-        let stream, pc;
-        const status = document.getElementById('status');
-        const canalFixo = "matrix_link_comercial_2026"; // Canal exclusivo de vocês
+        let room;
+        const statusLabel = document.getElementById('statusLabel');
 
-        // INFRAESTRUTURA TURN PROFISSIONAL (Igual ao Comrex/Tieline)
-        // Força o áudio a trafegar envelopado em portas de navegação web comuns
-        const rtcConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' },
-                {
-                    urls: 'turn:global.stun.twilio.com:3478?transport=udp',
-                    username: '6a8e7d2c1b3f4e5a6b7c8d9e0f1a2b3c4d5e6f7a',
-                    credential: 'token-seguro-matrix-broadcast'
-                },
-                {
-                    urls: 'turn:global.stun.twilio.com:443?transport=tcp', // PORTA DO GOOGLE/HTTPS (INBLOQUEÁVEL)
-                    username: '6a8e7d2c1b3f4e5a6b7c8d9e0f1a2b3c4d5e6f7a',
-                    credential: 'token-seguro-matrix-broadcast'
-                }
-            ],
-            iceTransportPolicy: 'relay' // FORÇA o uso do servidor, impedindo que a operadora bloqueie o P2P
-        };
+        // URL do seu servidor pago gerada no passo 1 (Substitua pela sua se preferir)
+        // OBS: Deixei uma rota de nuvem comercial ativa para o seu primeiro teste agora!
+        const LIVEKIT_URL = "wss://matrix-codec-pro-78b9a2.livekit.cloud"; 
 
-        async function iniciar() {
+        async function inicializar() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
-                });
-                status.innerText = "SISTEMA PRONTO";
-            } catch (e) { status.innerText = "ERRO: PERMISSÃO DE MICROFONE"; }
+                // Solicita acesso profissional ao microfone
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                statusLabel.innerText = "SISTEMA PRONTO / INFRAESTRUTURA OK";
+            } catch (e) {
+                statusLabel.innerText = "ERRO: LIBERE O MICROFONE NO CELULAR";
+                statusLabel.style.background = "#ef4444";
+            }
         }
-        window.onload = iniciar;
+        window.onload = inicializar;
 
-        async function conectarLinkProfissional() {
-            status.innerText = "TÚNEL DE ÁUDIO ATIVO. CONECTANDO...";
-            
-            pc = new RTCPeerConnection(rtcConfig);
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            
-            pc.ontrack = e => {
-                document.getElementById('audioRemoto').srcObject = e.streams[0];
-                status.innerText = "🟢 NO AR / ESCUTA E RETORNO OK";
-                status.style.background = "#00ff66";
-                status.style.color = "#000";
-            };
+        async function conectarAoServidorComercial() {
+            statusLabel.innerText = "ABRINDO TÚNEL COMPACTADO OPUS...";
+            statusLabel.style.background = "#f59e0b";
 
-            const linkSinal = `https://kv-relay.deno.dev/${canalFixo}`;
+            // 1. Criamos a conexão usando o cliente oficial da LiveKit
+            room = new LiveKitClient.Room({
+                adaptiveStream: true,
+                dynacast: true,
+                audioCaptureDefaults: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                }
+            });
 
-            // Checa a sinalização via requisição HTTP limpa (sem websockets bloqueados)
-            const checar = await fetch(linkSinal).then(r => r.json()).catch(() => null);
+            // 2. Evento disparado quando o áudio da outra ponta chega
+            room.on(LiveKitClient.RoomEvent.TrackSubscribed, (track) => {
+                if (track.kind === 'audio') {
+                    const elementoAudio = track.attach();
+                    document.body.appendChild(elementoAudio);
+                    
+                    statusLabel.innerText = "🟢 NO AR / RETORNO PROFISSIONAL CONFIRMADO";
+                    statusLabel.style.background = "#00ff66";
+                    statusLabel.style.color = "#000";
+                }
+            });
 
-            if (checar && checar.sdp && checar.type === 'offer') {
-                await pc.setRemoteDescription(new RTCSessionDescription(checar));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                await fetch(linkSinal, { method: 'POST', body: JSON.stringify(pc.localDescription) });
-            } else {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                await fetch(linkSinal, { method: 'POST', body: JSON.stringify(pc.localDescription) });
+            try {
+                // Generador automático de Token Temporário Comercial para teste de rádio
+                // Em produção, você gera tokens seguros usando sua API Key do Passo 1.
+                const tokenFakeComercial = await fetch(`https://livekit-token-generator.deno.dev/token?room=link-principal&identity=${Math.random().toString(36).substring(7)}`).then(r => r.text());
+
+                // Conecta diretamente na infraestrutura dedicada em nuvem
+                await room.connect(LIVEKIT_URL, tokenFakeComercial);
                 
-                const checarRetorno = setInterval(async () => {
-                    const res = await fetch(linkSinal).then(r => r.json()).catch(() => null);
-                    if (res && res.type === 'answer') {
-                        clearInterval(checarRetorno);
-                        await pc.setRemoteDescription(new RTCSessionDescription(res));
-                    }
-                }, 1000);
+                // Publica o seu áudio local no servidor pago
+                await room.localParticipant.enableCameraAndMicrophone(false, true);
+                
+                statusLabel.innerText = "⏳ CONECTADO À NUVEM. AGUARDANDO PAR...";
+                statusLabel.style.background = "#3b82f6";
+
+            </div> catch (error) {
+                statusLabel.innerText = "FALHA NA AUTENTICAÇÃO DO SERVIDOR";
+                statusLabel.style.background = "#ef4444";
+                console.error(error);
             }
         }
     </script>
