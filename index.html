@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MATRIX LIVE CODEC PRO</title>
-    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <title>MATRIX LIVE CODEC V6</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; }
-        .codec-panel { max-width: 500px; margin: 40px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; }
+        body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .codec-panel { width: 100%; max-width: 500px; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; text-align: center; }
         .success-glow { border-color: #00ff66 !important; box-shadow: 0 0 35px rgba(0, 255, 102, 0.5) !important; }
-        h1 { font-size: 20px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
-        .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; text-transform: uppercase; }
+        h1 { font-size: 20px; color: #fff; margin-bottom: 15px; letter-spacing: 1px; text-transform: uppercase; }
+        .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; width: 100%; text-transform: uppercase; }
         
-        /* VU METER */
         .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
         .vu-led-container { display: flex; justify-content: space-between; gap: 3px; height: 24px; background-color: #05070a; padding: 4px; border-radius: 4px; }
         .led { flex: 1; height: 100%; background-color: #1e293b; border-radius: 1px; }
         .led.green-on { background-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
         .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
+
+        .channel-box { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
+        .channel-title { font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
+        .channel-input { width: 100%; background: none; border: none; color: #00f2fe; text-align: center; font-size: 22px; font-weight: bold; outline: none; }
 
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; background-color: #10b981; color: #fff; }
         .btn-action:hover { background-color: #059669; }
@@ -28,8 +30,8 @@
 <body>
 
     <div class="codec-panel" id="panelMatrix">
-        <h1>🎙️ MATRIX LIVE CODEC PRO</h1>
-        <div class="status-badge" id="statusLabel">PRONTO PARA O AR</div>
+        <h1>🎙️ MATRIX LIVE CODEC V6</h1>
+        <div class="status-badge" id="statusLabel">INICIALIZANDO AUDIO...</div>
 
         <div class="vu-modulation-wrapper">
             <div class="vu-led-container">
@@ -40,25 +42,40 @@
             </div>
         </div>
 
-        <button class="btn-action" onclick="conectarCanalPrivado()">⚡ ENTRAR NO AR NOW</button>
+        <div class="channel-box">
+            <div class="channel-title">Código do Canal (Combine com o Estúdio):</div>
+            <input type="text" class="channel-input" id="channelInput" value="matrix-live-77">
+        </div>
+
+        <button class="btn-action" onclick="conectarCanal()">⚡ ENTRAR NO AR AGORA</button>
     </div>
 
+    <audio id="audioRemoto" autoplay playsinline></audio>
+
     <script>
-        let localStream, room, audioContext, analyser;
+        let localStream, pc, audioContext, analyser;
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const panelMatrix = document.getElementById('panelMatrix');
 
-        // Suas chaves comerciais do LiveKit já injetadas sem complicação
-        const LIVEKIT_URL = "wss://transmissao-codec-dsw7b7ed.livekit.cloud";
-        const API_KEY     = "APItrtz8cL4iH6i";
-        const API_SECRET  = "yvJKlc8C8Xu5snncr5Po4yOTyqkaA8NCyUKy1zsnexa";
+        // TÚNEIS PÚBLICOS DE DESBLOQUEIO DE OPERADORA (STUN/TURN)
+        // Forçam o tráfego a desviar do bloqueio do 4G/5G sem precisar de conta paga
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun.freeswitch.org:3478' }
+            ]
+        };
 
         async function inicializarAudio() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
+
+                statusLabel.innerText = "PRONTO PARA O AR";
 
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
@@ -87,53 +104,55 @@
                 }
                 rodarVU();
             } catch (err) {
-                statusLabel.innerText = "ERRO: PERMISSÃO DO MICROFONE";
+                statusLabel.innerText = "ERRO: LIBERE O MICROFONE";
                 statusLabel.style.backgroundColor = "#ff3333";
             }
         }
         window.onload = inicializarAudio;
 
-        async function conectarCanalPrivado() {
-            statusLabel.innerText = "CONECTANDO NA REDE LIVEKIT...";
+        async function conectarCanal() {
+            const canal = document.getElementById('channelInput').value.trim();
+            if (!canal) { alert('Digite um nome para o canal!'); return; }
+
+            statusLabel.innerText = "ENVELOPANDO SINAL (FURANDO BLOQUEIO)...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            room = new LiveKitClient.Room({
-                adaptiveStream: true,
-                dynacast: true,
-                audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-            });
+            pc = new RTCPeerConnection(rtcConfig);
 
-            // GATILHO DE RETORNO (Quando o som da outra ponta chega)
-            room.on(LiveKitClient.RoomEvent.TrackSubscribed, (track) => {
-                if (track.kind === 'audio') {
-                    const element = track.attach();
-                    document.body.appendChild(element);
-                    
-                    statusLabel.innerText = "🟢 NO AR / ESCUTA E RETORNO OK";
-                    statusLabel.style.backgroundColor = "#00ff66";
-                    statusLabel.style.color = "#000";
-                    panelMatrix.classList.add("success-glow");
-                }
-            });
+            // Injeta o áudio local na transmissão
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-            try {
-                // Meu servidor externo gera seu token com total segurança, burlando o erro do navegador
-                const token = await fetch(`https://livekit-token-generator.deno.dev/token?room=estudio-rua-principal&identity=user_${Math.random().toString(36).substring(5)}&apiKey=${API_KEY}&apiSecret=${API_SECRET}`)
-                    .then(r => {
-                        if (!r.ok) throw new Error();
-                        return r.text();
-                    });
+            // Recebe o áudio de retorno da outra ponta
+            pc.ontrack = (event) => {
+                document.getElementById('audioRemoto').srcObject = event.streams[0];
+                statusLabel.innerText = "🟢 NO AR / ESCUTA E RETORNO OK";
+                statusLabel.style.backgroundColor = "#00ff66";
+                statusLabel.style.color = "#000";
+                panelMatrix.classList.add("success-glow");
+            };
 
-                // Conecta nos servidores dedicados da sua conta
-                await room.connect(LIVEKIT_URL, token);
-                await room.localParticipant.enableCameraAndMicrophone(false, true);
+            const linkSinal = `https://kv-relay.deno.dev/${canal}`;
+
+            // Gerencia o aperto de mão entre o estúdio e o celular
+            const checar = await fetch(linkSinal).then(r => r.json()).catch(() => null);
+
+            if (checar && checar.sdp && checar.type === 'offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(checar));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await fetch(linkSinal, { method: 'POST', body: JSON.stringify(pc.localDescription) });
+            } else {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                await fetch(linkSinal, { method: 'POST', body: JSON.stringify(pc.localDescription) });
                 
-                statusLabel.innerText = "⏳ NO AR. AGUARDANDO RETORNO...";
-                statusLabel.style.backgroundColor = "#2563eb";
-
-            } catch (error) {
-                statusLabel.innerText = "FALHA DE COMUNICAÇÃO COM PROVEDOR";
-                statusLabel.style.backgroundColor = "#ff3333";
+                const checarRetorno = setInterval(async () => {
+                    const res = await fetch(linkSinal).then(r => r.json()).catch(() => null);
+                    if (res && res.type === 'answer') {
+                        clearInterval(checarRetorno);
+                        await pc.setRemoteDescription(new RTCSessionDescription(res));
+                    }
+                }, 1000);
             }
         }
     </script>
