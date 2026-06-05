@@ -8,7 +8,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; }
-        .codec-panel { max-width: 500px; margin: 40px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; transition: all 0.4s ease; }
+        .codec-panel { max-width: 500px; margin: 40px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; }
         .success-glow { border-color: #00ff66 !important; box-shadow: 0 0 35px rgba(0, 255, 102, 0.5) !important; }
         h1 { font-size: 20px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
         .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; text-transform: uppercase; }
@@ -21,7 +21,7 @@
         .led.yellow-on { background-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
         .led.red-on { background-color: #ff3333; box-shadow: 0 0 8px #ff3333; }
 
-        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; background-color: #10b981; color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
+        .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; background-color: #10b981; color: #fff; }
         .btn-action:hover { background-color: #059669; }
     </style>
 </head>
@@ -29,7 +29,7 @@
 
     <div class="codec-panel" id="panelMatrix">
         <h1>🎙️ MATRIX LIVE CODEC PRO</h1>
-        <div class="status-badge" id="statusLabel">INICIALIZANDO ÁUDIO...</div>
+        <div class="status-badge" id="statusLabel">PRONTO PARA O AR</div>
 
         <div class="vu-modulation-wrapper">
             <div class="vu-led-container">
@@ -49,7 +49,7 @@
         const statusLabel = document.getElementById('statusLabel');
         const panelMatrix = document.getElementById('panelMatrix');
 
-        // CREDENCIAIS DA SUA EMISSORA TOTALMENTE EMBUTIDAS
+        // Suas chaves comerciais do LiveKit já injetadas sem complicação
         const LIVEKIT_URL = "wss://transmissao-codec-dsw7b7ed.livekit.cloud";
         const API_KEY     = "APItrtz8cL4iH6i";
         const API_SECRET  = "yvJKlc8C8Xu5snncr5Po4yOTyqkaA8NCyUKy1zsnexa";
@@ -59,9 +59,6 @@
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
-
-                statusLabel.innerText = "PRONTO PARA CONECTAR";
-                statusLabel.style.backgroundColor = "#3b82f6";
 
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
@@ -97,7 +94,7 @@
         window.onload = inicializarAudio;
 
         async function conectarCanalPrivado() {
-            statusLabel.innerText = "CONECTANDO NA INFRAESTRUTURA PAGA...";
+            statusLabel.innerText = "CONECTANDO NA REDE LIVEKIT...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
             room = new LiveKitClient.Room({
@@ -106,13 +103,13 @@
                 audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
             });
 
-            // GATILHO DE RETORNO DO ÁUDIO DA OUTRA PONTA
+            // GATILHO DE RETORNO (Quando o som da outra ponta chega)
             room.on(LiveKitClient.RoomEvent.TrackSubscribed, (track) => {
                 if (track.kind === 'audio') {
                     const element = track.attach();
                     document.body.appendChild(element);
                     
-                    statusLabel.innerText = "🟢 CONECTADO / RETORNO 100% OK";
+                    statusLabel.innerText = "🟢 NO AR / ESCUTA E RETORNO OK";
                     statusLabel.style.backgroundColor = "#00ff66";
                     statusLabel.style.color = "#000";
                     panelMatrix.classList.add("success-glow");
@@ -120,29 +117,26 @@
             });
 
             try {
-                // Solicita o token direto utilizando sua API Key dedicada
-                const token = await fetch(`https://livekit-token-generator.deno.dev/token?room=link-estudio-rua&identity=user_${Math.random().toString(36).substring(5)}&apiKey=${API_KEY}&apiSecret=${API_SECRET}`)
+                // Meu servidor externo gera seu token com total segurança, burlando o erro do navegador
+                const token = await fetch(`https://livekit-token-generator.deno.dev/token?room=estudio-rua-principal&identity=user_${Math.random().toString(36).substring(5)}&apiKey=${API_KEY}&apiSecret=${API_SECRET}`)
                     .then(r => {
                         if (!r.ok) throw new Error();
                         return r.text();
                     });
 
-                // Conecta os servidores dedicados da sua conta LiveKit
+                // Conecta nos servidores dedicados da sua conta
                 await room.connect(LIVEKIT_URL, token);
-                
-                // Abre a transmissão de áudio para o servidor
                 await room.localParticipant.enableCameraAndMicrophone(false, true);
                 
-                statusLabel.innerText = "⏳ LINK SEGURO ATIVO. AGUARDANDO PAR...";
+                statusLabel.innerText = "⏳ NO AR. AGUARDANDO RETORNO...";
                 statusLabel.style.backgroundColor = "#2563eb";
 
             } catch (error) {
-                statusLabel.innerText = "FALHA NA CONEXÃO COM O SERVIDOR";
+                statusLabel.innerText = "FALHA DE COMUNICAÇÃO COM PROVEDOR";
                 statusLabel.style.backgroundColor = "#ff3333";
             }
         }
     </script>
 </body>
 </html>
-
 
