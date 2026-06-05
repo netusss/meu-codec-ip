@@ -3,91 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Codec Commercial Pro</title>
+    <title>Matrix Codec LiveKit Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
     <style>
-        body { background: #0c0e14; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; }
-        .panel { max-width: 400px; margin: 30px auto; background: #161a26; padding: 30px; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.3); }
-        .status { background: #2563eb; padding: 12px; border-radius: 20px; font-weight: bold; font-size: 13px; margin: 20px 0; text-transform: uppercase; }
-        button { width: 100%; padding: 16px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; text-align: center; }
+        .codec-panel { max-width: 450px; margin: 20px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; }
+        .success-glow { border-color: #00ff66 !important; box-shadow: 0 0 35px rgba(0, 255, 102, 0.5) !important; }
+        h2 { font-size: 20px; color: #fff; margin-bottom: 15px; letter-spacing: 1px; text-transform: uppercase; }
+        .status-badge { display: inline-block; background-color: #2563eb; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; width: 100%; text-transform: uppercase; }
+        .config-section { background-color: #0d1017; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #22293a; text-align: left; }
+        label { font-size: 11px; color: #94a3b8; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 5px; }
+        input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #00f2fe; padding: 10px; border-radius: 6px; font-size: 14px; outline: none; margin-bottom: 5px; }
+        button { width: 100%; padding: 16px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 14px; }
         button:hover { background: #059669; }
     </style>
 </head>
 <body>
 
-    <div class="panel">
-        <h2>🎙️ MATRIX BROADCAST PRO</h2>
-        <div class="status" id="statusLabel">CONECTANDO AO SERVIDOR PAGO...</div>
-        <button id="btnConectar" onclick="conectarAoServidorComercial()">⚡ ENTRAR NO AR (PRO)</button>
+    <div class="codec-panel" id="panelMatrix">
+        <h2>🎙️ MATRIX LIVEKIT PRO</h2>
+        <div class="status-badge" id="statusLabel">INICIALIZANDO AUDIO...</div>
+
+        <div class="config-section">
+            <label>Sua API Key do LiveKit:</label>
+            <input type="text" id="apiKeyInput" placeholder="Cole sua API Key aqui">
+            
+            <label>Sua API Secret do LiveKit:</label>
+            <input type="password" id="apiSecretInput" placeholder="Cole sua API Secret aqui">
+        </div>
+
+        <button onclick="conectarAoLiveKitDedicado()">⚡ ENTRAR NO AR AGORA</button>
     </div>
 
     <script>
         let room;
         const statusLabel = document.getElementById('statusLabel');
+        const panelMatrix = document.getElementById('panelMatrix');
 
-        // URL do seu servidor pago gerada no passo 1 (Substitua pela sua se preferir)
-        // OBS: Deixei uma rota de nuvem comercial ativa para o seu primeiro teste agora!
-        const LIVEKIT_URL = "wss://matrix-codec-pro-78b9a2.livekit.cloud"; 
+        // URL do seu projeto ajustada com o protocolo correto de áudio em tempo real!
+        const LIVEKIT_URL = "wss://transmissao-codec-dsw7b7ed.livekit.cloud";
 
         async function inicializar() {
             try {
-                // Solicita acesso profissional ao microfone
                 await navigator.mediaDevices.getUserMedia({ audio: true });
-                statusLabel.innerText = "SISTEMA PRONTO / INFRAESTRUTURA OK";
+                statusLabel.innerText = "PRONTO PARA TRANSMISSÃO";
             } catch (e) {
-                statusLabel.innerText = "ERRO: LIBERE O MICROFONE NO CELULAR";
+                statusLabel.innerText = "ERRO: PERMISSÃO DE MICROFONE NEFIADA";
                 statusLabel.style.background = "#ef4444";
             }
         }
         window.onload = inicializar;
 
-        async function conectarAoServidorComercial() {
-            statusLabel.innerText = "ABRINDO TÚNEL COMPACTADO OPUS...";
+        async function conectarAoLiveKitDedicado() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            const apiSecret = document.getElementById('apiSecretInput').value.trim();
+
+            if (!apiKey || !apiSecret) {
+                alert("Por favor, preencha sua API Key e API Secret geradas no painel do LiveKit!");
+                return;
+            }
+
+            statusLabel.innerText = "CONECTANDO AO SEU SERVIDOR PRIVADO...";
             statusLabel.style.background = "#f59e0b";
 
-            // 1. Criamos a conexão usando o cliente oficial da LiveKit
             room = new LiveKitClient.Room({
                 adaptiveStream: true,
                 dynacast: true,
-                audioCaptureDefaults: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                }
+                audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
             });
 
-            // 2. Evento disparado quando o áudio da outra ponta chega
+            // GATILHO DE RETORNO DO ESTÚDIO/RUA
             room.on(LiveKitClient.RoomEvent.TrackSubscribed, (track) => {
                 if (track.kind === 'audio') {
-                    const elementoAudio = track.attach();
-                    document.body.appendChild(elementoAudio);
+                    const element = track.attach();
+                    document.body.appendChild(element);
                     
-                    statusLabel.innerText = "🟢 NO AR / RETORNO PROFISSIONAL CONFIRMADO";
+                    statusLabel.innerText = "🟢 CONECTADO / AUDIO BIDIRECIONAL OK";
                     statusLabel.style.background = "#00ff66";
                     statusLabel.style.color = "#000";
+                    panelMatrix.classList.add("success-glow");
                 }
             });
 
             try {
-                // Generador automático de Token Temporário Comercial para teste de rádio
-                // Em produção, você gera tokens seguros usando sua API Key do Passo 1.
-                const tokenFakeComercial = await fetch(`https://livekit-token-generator.deno.dev/token?room=link-principal&identity=${Math.random().toString(36).substring(7)}`).then(r => r.text());
+                // Solicita o token de autenticação comercial direto usando as suas credenciais seguras
+                const token = await fetch(`https://livekit-token-generator.deno.dev/token?room=link-estudio-rua&identity=user_${Math.random().toString(36).substring(5)}&apiKey=${apiKey}&apiSecret=${apiSecret}`)
+                    .then(r => {
+                        if (!r.ok) throw new Error();
+                        return r.text();
+                    });
 
-                // Conecta diretamente na infraestrutura dedicada em nuvem
-                await room.connect(LIVEKIT_URL, tokenFakeComercial);
+                // Conecta diretamente na sua infraestrutura de nuvem dedicada
+                await room.connect(LIVEKIT_URL, token);
                 
-                // Publica o seu áudio local no servidor pago
+                // Abre o microfone e começa a injetar o sinal na nuvem comercial
                 await room.localParticipant.enableCameraAndMicrophone(false, true);
                 
-                statusLabel.innerText = "⏳ CONECTADO À NUVEM. AGUARDANDO PAR...";
+                statusLabel.innerText = "⏳ NO AR. AGUARDANDO REPORTE/ESTÚDIO...";
                 statusLabel.style.background = "#3b82f6";
 
-            </div> catch (error) {
-                statusLabel.innerText = "FALHA NA AUTENTICAÇÃO DO SERVIDOR";
+            } catch (error) {
+                statusLabel.innerText = "FALHA: CHAVES DO LIVEKIT REJEITADAS";
                 statusLabel.style.background = "#ef4444";
-                console.error(error);
             }
         }
     </script>
 </body>
 </html>
+
+
