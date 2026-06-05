@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codec IP Matrix - Alta Disponibilidade</title>
+    <title>Codec IP Matrix - Premium</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0c0e14; color: #e2e8f0; padding: 15px; }
-        .codec-panel { max-width: 500px; margin: 20px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; }
+        .codec-panel { max-width: 500px; margin: 20px auto; background-color: #161a26; border-radius: 12px; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0, 242, 254, 0.2); padding: 25px; transition: all 0.5s ease; }
+        .connected-flash { border-color: #00ff66 !important; box-shadow: 0 0 35px rgba(0, 255, 102, 0.4) !important; }
         h1 { font-size: 20px; text-align: center; color: #fff; margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
         .status-badge { display: inline-block; background-color: #3b82f6; color: #fff; padding: 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; text-transform: uppercase; }
         .vu-modulation-wrapper { background-color: #0d1017; padding: 15px; border-radius: 8px; border: 1px solid #22293a; margin-bottom: 20px; }
@@ -19,13 +20,15 @@
         .config-section { background-color: #0d1017; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #22293a; text-align: center; }
         input { width: 100%; background-color: #161a26; border: 1px solid #334155; color: #00f2fe; padding: 12px; border-radius: 6px; font-size: 18px; outline: none; margin-top: 5px; text-align: center; font-weight: bold; }
         .btn-action { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
-        .btn-green { background-color: #00ff66; color: #000; }
+        .btn-green { background-color: #10b981; color: #fff; }
+        .btn-unmute { background-color: #f59e0b; color: #000; margin-top: 10px; display: none; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
     </style>
 </head>
 <body>
 
-    <div class="codec-panel">
-        <h1>🎙️ MATRIX LIVE CODEC v2</h1>
+    <div class="codec-panel" id="panelPrincipal">
+        <h1>🎙️ MATRIX LIVE CODEC v3</h1>
         <div class="status-badge" id="statusLabel">INICIALIZANDO AUDIO...</div>
 
         <div class="vu-modulation-wrapper">
@@ -43,6 +46,7 @@
         </div>
 
         <button class="btn-action btn-green" id="btnConectar" onclick="conectarLinhaDireta()">⚡ ENTRAR NO AR AGORA</button>
+        <button class="btn-action btn-unmute" id="btnUnmute" onclick="forcarAudioRemoto()">🔊 ATIVAR ESCUTA (RETORNO)</button>
     </div>
 
     <audio id="remoteAudio" autoplay playsinline></audio>
@@ -52,32 +56,38 @@
         const leds = document.querySelectorAll('.led');
         const statusLabel = document.getElementById('statusLabel');
         const roomInput = document.getElementById('roomInput');
+        const panelPrincipal = document.getElementById('panelPrincipal');
+        const btnUnmute = document.getElementById('btnUnmute');
+        const remoteAudio = document.getElementById('remoteAudio');
 
-        // INFRAESTRUTURA DE ALTA DISPONIBILIDADE (FURA-FIREWALL DA TWILIO)
         const iceConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478?transport=udp' },
-                {
-                    urls: 'turn:global.stun.twilio.com:3478?transport=udp',
-                    username: '3b82f6e2a14b5c7d8e9f0a1b2c3d4e5f6g7h8i9j', 
-                    credential: 'unbreakable-token-matrix-2026'
-                }
-            ],
-            iceTransportPolicy: 'all'
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
         };
 
-        // Ativação automática do microfone e VU ao entrar na página
+        // BIP sonoro de aviso de conexão estabelecida
+        function tocarBipeAlerta() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sine";
+                osc.frequency.value = 600; // Frequência do bipe
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3); // Duração de 300ms
+            } catch(e) {}
+        }
+
         async function autoStart() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { 
-                        echoCancellation: false, 
-                        noiseSuppression: false, 
-                        autoGainControl: true,
-                        channelCount: 1,
-                        sampleRate: 48000
-                    }
+                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true }
                 });
 
                 statusLabel.innerText = "PRONTO PARA TRANSMISSÃO";
@@ -118,14 +128,14 @@
 
         function conectarLinhaDireta() {
             const sala = roomInput.value.trim();
-            statusLabel.innerText = "FORÇANDO TÚNEL DE SINAL...";
+            statusLabel.innerText = "SINALIZANDO PORTAS...";
             statusLabel.style.backgroundColor = "#f59e0b";
 
-            // Sinalização redundante via cluster estável sem retenção de pacotes
-            ws = new WebSocket(`wss://pie-relay-cluster.glitch.me/?room=${sala}`);
+            // Nova rota estável livre de cache público
+            ws = new WebSocket(`wss://connect.websocket.in/v3/${sala}?api_key=oCdC2zZGjpxGVm3WM716GvN2SMrw7asA7qfSsmYI`);
 
             ws.onopen = () => {
-                statusLabel.innerText = "SALA ATIVA. AGUARDANDO PAR...";
+                statusLabel.innerText = "AGUARDANDO O OUTRO PAR...";
                 statusLabel.style.backgroundColor = "#10b981";
                 configurarWebRTC(true);
             };
@@ -146,11 +156,6 @@
                     } catch (e) {}
                 }
             };
-
-            ws.onclose = () => {
-                // Auto-reconexão imediata caso a rede oscile na rua
-                setTimeout(conectarLinhaDireta, 2000);
-            };
         }
 
         function configurarWebRTC(criarOferta) {
@@ -161,12 +166,21 @@
                 if (event.candidate) ws.send(JSON.stringify({ candidate: event.candidate }));
             };
 
+            // GATILHO CRUCIAL: QUANDO O ÁUDIO REALMENTE CONECTA
             pc.ontrack = event => {
-                const audioRemoto = document.getElementById('remoteAudio');
-                audioRemoto.srcObject = event.streams[0];
-                statusLabel.innerText = "🔴 TRANSMITINDO / NO AR";
+                remoteAudio.srcObject = event.streams[0];
+                
+                // 1. Mudança Visual Radical (Aviso que conectou)
+                statusLabel.innerText = "🔴 CONECTADO / NO AR";
                 statusLabel.style.backgroundColor = "#00ff66";
                 statusLabel.style.color = "#000";
+                panelPrincipal.classList.add("connected-flash");
+
+                // 2. Alerta Sonoro
+                tocarBipeAlerta();
+
+                // 3. Ativa botão de segurança contra travas do navegador
+                btnUnmute.style.display = "block";
             };
 
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -177,6 +191,18 @@
                     await pc.setLocalDescription(offer);
                     ws.send(JSON.stringify({ sdp: pc.localDescription }));
                 };
+            }
+        }
+
+        // Função de clique físico para forçar a saída do som no celular se o navegador bloquear
+        function forcarAudioRemoto() {
+            if (remoteAudio) {
+                remoteAudio.play().then(() => {
+                    btnUnmute.style.display = "none"; // Esconde o botão se o som liberar
+                    statusLabel.innerText = "🔴 CONECTADO / ESCUTA ATIVA";
+                }).catch(e => {
+                    alert("Dica: Verifique se o volume de mídia do celular não está zerado!");
+                });
             }
         }
     </script>
